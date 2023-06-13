@@ -1,7 +1,10 @@
 use std::io;
-use std::sync::{Arc, Mutex};
-use nats::{Connection, Options};
-use crate::producer::memphis_producer_options::MemphisProducerOptions;
+use std::io::Error;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use nats::asynk::{Connection, Options};
+use tokio::runtime::Runtime;
+use uuid::Uuid;
 
 pub struct MemphisClient {
     broker_connection: Connection,
@@ -9,27 +12,42 @@ pub struct MemphisClient {
 }
 
 impl MemphisClient {
-    pub fn new(
-        mut broker_conn_options: Options,
-        connection_url: String,
+    pub async fn new(memphis_host: &str,
+                     memphis_username: &str,
+                     memphis_password: &str,
     ) -> io::Result<MemphisClient> {
         let is_connected = Arc::new(Mutex::new(false));
-        let is_connected_clone = is_connected.clone();
-        let is_connected_clone2 = is_connected.clone();
-        let is_connected_clone3 = is_connected.clone();
 
-        broker_conn_options = broker_conn_options.disconnect_callback(move || {
-            *is_connected_clone.lock().unwrap() = false;
-            println!("Disconnected from NATS");
-        }).reconnect_callback(move || {
-            *is_connected_clone2.lock().unwrap() = true;
-            println!("Reconnected to NATS");
-        }).close_callback(move || {
-            *is_connected_clone3.lock().unwrap() = false;
-            println!("Connection to NATS closed");
-        });
+        // TODO: Replace 1 with account_id
+        let broker_settings = MemphisClient::create_settings(
+            is_connected.clone(),
+            format!("{}${}", memphis_username, 1).as_str(),
+            memphis_password,
+        );
 
-        let connection = broker_conn_options.connect(connection_url)?;
+        let connection = match broker_settings.connect(memphis_host).await {
+            Ok(c) => c,
+            Err(e) => {
+                if e.to_string().contains("Authorization Violation") {
+                    let broker_settings = MemphisClient::create_settings(
+                        is_connected.clone(),
+                        memphis_username,
+                        memphis_password,
+                    );
+                    let connection = broker_settings.connect(memphis_host).await;
+                    match connection {
+                        Ok(c) => c,
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                } else {
+                    return Err(e);
+                }
+            }
+        };
+
+        *is_connected.lock().await = true;
 
         Ok(MemphisClient {
             broker_connection: connection,
@@ -37,9 +55,50 @@ impl MemphisClient {
         })
     }
 
-    pub fn CreateProducer(&self, producerOptions: MemphisProducerOptions) {
-        let station_name = producerOptions.station_name;
-        let producer_name = producerOptions.producer_name;
-        let generate_unique_suffix = producerOptions.generate_unique_suffix;
+    pub async fn is_connected(&self) -> bool {
+        *self.is_connected.lock().await
     }
+
+    fn create_settings(is_connected: Arc<Mutex<bool>>, memphis_username: &str, memphis_password: &str) -> Options {
+        let is_connected2 = is_connected.clone();
+        let is_connected3 = is_connected.clone();
+        let is_connected4 = is_connected.clone();
+
+        return Options::with_user_pass(memphis_username, memphis_password)
+            .disconnect_callback(move || {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(MemphisClient::disconnect_callback(is_connected2.clone()));
+            })
+            .reconnect_callback(move || {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(MemphisClient::reconnect_callback(is_connected3.clone()));
+            })
+            .close_callback(move || {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(MemphisClient::close_callback(is_connected4.clone()));
+            })
+            .with_name(&*format!("{}::{}", Uuid::new_v4(), memphis_username));
+    }
+
+    fn get_connection(&self) -> &Connection {
+        &self.broker_connection
+    }
+
+    async fn disconnect_callback(is_connected: Arc<Mutex<bool>>) {
+        *is_connected.lock().await = false;
+    }
+
+    async fn reconnect_callback(is_connected: Arc<Mutex<bool>>) {
+        *is_connected.lock().await = true;
+    }
+
+    async fn close_callback(is_connected: Arc<Mutex<bool>>) {
+        *is_connected.lock().await = false;
+    }
+
+// pub fn CreateProducer(&self, producerOptions: MemphisProducerOptions) {
+//     let station_name = producerOptions.station_name;
+//     let producer_name = producerOptions.producer_name;
+//     let generate_unique_suffix = producerOptions.generate_unique_suffix;
+// }
 }
