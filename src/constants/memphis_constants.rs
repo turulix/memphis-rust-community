@@ -1,4 +1,5 @@
-enum MemphisStations {
+#[allow(dead_code)]
+pub(crate) enum MemphisStations {
     MemphisProducerCreations,
     MemphisConsumerCreations,
     MemphisStationCreations,
@@ -34,7 +35,8 @@ impl ToString for MemphisStations {
     }
 }
 
-enum MemphisHeaders {
+#[allow(dead_code)]
+pub(crate) enum MemphisHeaders {
     MessageId,
     MemphisProducedBy,
     MemphisConnectionId,
@@ -50,7 +52,8 @@ impl ToString for MemphisHeaders {
     }
 }
 
-enum MemphisSubscriptions {
+#[allow(dead_code)]
+pub(crate) enum MemphisSubscriptions {
     DlsPrefix
 }
 
@@ -62,7 +65,8 @@ impl ToString for MemphisSubscriptions {
     }
 }
 
-enum MemphisSubjects {
+#[allow(dead_code)]
+pub(crate) enum MemphisSubjects {
     PmResendAckSubj,
     MemphisSchemaUpdate,
     SdkClientsUpdate,
@@ -80,7 +84,8 @@ impl ToString for MemphisSubjects {
     }
 }
 
-enum MemphisSchemaTypes {
+#[allow(dead_code)]
+pub(crate) enum MemphisSchemaTypes {
     NONE,
     JSON,
     GraphQl,
@@ -98,7 +103,8 @@ impl ToString for MemphisSchemaTypes {
     }
 }
 
-enum MemphisSdkClientUpdateTypes {
+#[allow(dead_code)]
+pub(crate) enum MemphisSdkClientUpdateTypes {
     SendNotification,
     SchemaVerseToDls,
     RemoveStation,
@@ -114,7 +120,8 @@ impl ToString for MemphisSdkClientUpdateTypes {
     }
 }
 
-enum MemphisGlobalVariables {
+#[allow(dead_code)]
+pub(crate) enum MemphisGlobalVariables {
     GlobalAccountName
 }
 

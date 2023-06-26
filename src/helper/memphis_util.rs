@@ -2,11 +2,6 @@ pub(crate) fn get_internal_name(name: &String) -> String {
     name.replace(".", "#")
 }
 
-
-pub(crate) fn get_station_name(name: &String) -> String {
-    name.replace("#", ".")
-}
-
 const CHARS: &[u8] = b"0123456789abcdef";
 
 pub(crate) fn get_unique_key(size: i32) -> String {

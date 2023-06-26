@@ -1,1 +1,1 @@
-mod memphis_constants;
+pub(crate) mod memphis_constants;

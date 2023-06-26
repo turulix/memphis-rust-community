@@ -1,3 +1,3 @@
-pub mod fetch_message_options;
 pub mod memphis_consumer_options;
-pub mod memphis_consumer;
+pub(crate) mod memphis_consumer;
+pub(crate) mod create_consumer_error;
