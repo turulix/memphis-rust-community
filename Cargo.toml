@@ -3,6 +3,7 @@ name = "memphis-rust-community"
 authors = ["turulix"]
 homepage = "https://github.com/turulix/memphis-rust-community"
 repository = "https://github.com/turulix/memphis-rust-community"
+description = "A Rust implementation of the Memphis Messaging Protocol"
 readme = "README.md"
 license = "GNU General Public License v3.0"
 license-file = "LICENSE"
