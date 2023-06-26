@@ -3,7 +3,15 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - README.md
+      - LICENSE
+      - .gitignore
   pull_request:
+    paths-ignore:
+      - README.md
+      - LICENSE
+      - .gitignore
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
