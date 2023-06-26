@@ -31,14 +31,13 @@ impl Default for MemphisConsumerOptions {
     }
 }
 
-
 impl MemphisConsumerOptions {
     pub fn new(station_name: &str, consumer_name: &str) -> Self {
-        return MemphisConsumerOptions {
+        MemphisConsumerOptions {
             station_name: station_name.to_string(),
             consumer_name: consumer_name.to_string(),
             ..Default::default()
-        };
+        }
     }
 
     pub fn with_station_name(mut self, station_name: String) -> Self {

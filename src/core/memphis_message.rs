@@ -1,11 +1,11 @@
-use std::string::FromUtf8Error;
-use std::sync::Arc;
-use std::time::Duration;
-use async_nats::{Error, HeaderMap};
-use async_nats::jetstream::{AckKind, Message};
 use crate::constants::memphis_constants::MemphisSubjects;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::pm_ack_msg::PmAckMsg;
+use async_nats::jetstream::{AckKind, Message};
+use async_nats::{Error, HeaderMap};
+use std::string::FromUtf8Error;
+use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct MemphisMessage {
@@ -16,7 +16,12 @@ pub struct MemphisMessage {
 }
 
 impl MemphisMessage {
-    pub fn new(msg: Message, memphis_client: MemphisClient, consumer_group: String, max_ack_time_ms: i32) -> Self {
+    pub fn new(
+        msg: Message,
+        memphis_client: MemphisClient,
+        consumer_group: String,
+        max_ack_time_ms: i32,
+    ) -> Self {
         MemphisMessage {
             msg: Arc::new(msg),
             memphis_client,
@@ -39,8 +44,12 @@ impl MemphisMessage {
                         };
                         let msg_to_ack_json = serde_json::to_string(&msg_to_ack_model).unwrap();
                         let msg_to_ack_bytes = bytes::Bytes::from(msg_to_ack_json);
-                        self.memphis_client.get_broker_connection()
-                            .publish(MemphisSubjects::PmResendAckSubj.to_string(), msg_to_ack_bytes)
+                        self.memphis_client
+                            .get_broker_connection()
+                            .publish(
+                                MemphisSubjects::PmResendAckSubj.to_string(),
+                                msg_to_ack_bytes,
+                            )
                             .await?;
                     }
                 }
@@ -51,18 +60,17 @@ impl MemphisMessage {
 
     /// Get the payload of the underlying NATS message.
     pub fn get_data(&self) -> &bytes::Bytes {
-        return &self.msg.payload;
+        &self.msg.payload
     }
 
     pub fn get_data_as_string(&self) -> Result<String, FromUtf8Error> {
-        return String::from_utf8(self.msg.payload.to_vec());
+        String::from_utf8(self.msg.payload.to_vec())
     }
 
     /// Get the headers of the underlying NATS message.
     pub fn get_headers(&self) -> &Option<HeaderMap> {
-        return &self.msg.headers;
+        &self.msg.headers
     }
-
 
     /// Delay the message for the specified duration.
     ///
@@ -74,16 +82,16 @@ impl MemphisMessage {
             if let Some(_msg_id) = headers.get("$memphis_pm_id") {
                 return match self.msg.ack_with(AckKind::Nak(Some(delay))).await {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 };
             }
             if let Some(_cg_name) = headers.get("$memphis_pm_cg_name") {
                 return match self.msg.ack_with(AckKind::Nak(Some(delay))).await {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 };
             }
         }
-        return Err(());
+        Err(())
     }
 }

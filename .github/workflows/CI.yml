@@ -1,0 +1,120 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  RUSTFLAGS: "-D warnings"
+
+defaults:
+  run:
+    shell: bash
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache Rust
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-rust
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Setup Memphis
+        run: |
+          curl -sSL https://raw.githubusercontent.com/memphisdev/memphis-docker/master/docker-compose.yml > docker-compose.yml
+          docker-compose up -d
+
+      - name: Install Rust
+        run: |
+          rustup install nightly
+          rustup default nightly
+
+      - name: Run Tests
+        run: |
+          cargo test --all
+
+  check_format:
+    name: check (format)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        run: |
+          rustup install nightly
+          rustup default nightly
+          rustup component add rustfmt
+
+      - name: Run the check
+        run: cargo fmt -- --check
+
+  check_lint:
+    name: check (lint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache rust
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-rust
+        with:
+          path: target
+          key: ${{ runner.os }}-${{ env.cache-name }}
+          restore-keys: |
+            ${{ runner.os }}-
+
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        run: |
+          rustup install nightly
+          rustup default nightly
+          rustup component add clippy
+
+      - name: Check lint
+        run: cargo clippy --benches --tests --examples --all-features -- --deny clippy::all
+
+  check_docs:
+    name: check (docs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache rust
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-rust
+        with:
+          path: target
+          key: ${{ runner.os }}-${{ env.cache-name }}
+          restore-keys: |
+            ${{ runner.os }}-
+
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up rust
+        run: |
+          rustup install nightly
+          rustup default nightly
+          rustup component add clippy
+
+      - name: Check lint
+        run: cargo doc

@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, )]
+#[derive(Debug)]
 pub enum CreateConsumerError {
     NatsError(async_nats::RequestError),
     MemphisError(String),
@@ -13,8 +13,13 @@ impl Display for CreateConsumerError {
         match self {
             CreateConsumerError::NatsError(e) => write!(f, "NatsError: {}", e),
             CreateConsumerError::MemphisError(e) => write!(f, "MemphisError: {}", e),
-            CreateConsumerError::NotConnected => write!(f, "Tried to create consumer without being connected to Memphis"),
-            CreateConsumerError::InvalidSequence => write!(f, "start_consume_from_sequence has to be a positive number"),
+            CreateConsumerError::NotConnected => write!(
+                f,
+                "Tried to create consumer without being connected to Memphis"
+            ),
+            CreateConsumerError::InvalidSequence => {
+                write!(f, "start_consume_from_sequence has to be a positive number")
+            }
         }
     }
 }

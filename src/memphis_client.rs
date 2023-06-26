@@ -1,18 +1,17 @@
-use std::sync::Arc;
-use std::time::Duration;
-use async_nats::{Client, ConnectError, ConnectOptions, jetstream};
-use async_nats::connection::State;
-use async_nats::jetstream::Context;
-use bytes::Bytes;
-use log::{error, trace};
-use tokio::sync::Mutex;
-use uuid::Uuid;
 use crate::constants::memphis_constants::MemphisStations;
 use crate::consumer::create_consumer_error::CreateConsumerError;
 use crate::consumer::memphis_consumer::MemphisConsumer;
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::helper::memphis_util::get_unique_key;
 use crate::models::request::create_consumer_request::CreateConsumerRequest;
+use async_nats::connection::State;
+use async_nats::jetstream::Context;
+use async_nats::{jetstream, Client, ConnectError, ConnectOptions};
+use bytes::Bytes;
+use log::{error, trace};
+use std::sync::Arc;
+use std::time::Duration;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct MemphisClient {
@@ -23,9 +22,10 @@ pub struct MemphisClient {
 }
 
 impl MemphisClient {
-    pub async fn new(memphis_host: &str,
-                     memphis_username: &str,
-                     memphis_password: &str,
+    pub async fn new(
+        memphis_host: &str,
+        memphis_username: &str,
+        memphis_password: &str,
     ) -> Result<MemphisClient, ConnectError> {
         let uuid = Uuid::new_v4();
         let name = format!("{}::{}", &uuid, memphis_username);
@@ -37,7 +37,8 @@ impl MemphisClient {
             name.clone(),
         );
 
-        let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await {
+        let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await
+        {
             Ok(c) => c,
             Err(e) => {
                 if e.to_string().contains("authorization violation") {
@@ -46,7 +47,8 @@ impl MemphisClient {
                         memphis_password,
                         name.clone(),
                     );
-                    let connection = async_nats::connect_with_options(memphis_host, broker_settings).await;
+                    let connection =
+                        async_nats::connect_with_options(memphis_host, broker_settings).await;
                     match connection {
                         Ok(c) => c,
                         Err(e) => {
@@ -75,13 +77,20 @@ impl MemphisClient {
         }
     }
 
-    fn create_settings(memphis_username: &str, memphis_password: &str, name: String) -> ConnectOptions {
-        return ConnectOptions::with_user_and_password(memphis_username.to_string(), memphis_password.to_string())
-            .flush_interval(Duration::from_millis(100))
-            .connection_timeout(Duration::from_secs(5))
-            .ping_interval(Duration::from_secs(1))
-            .request_timeout(Some(Duration::from_secs(5)))
-            .name(name);
+    fn create_settings(
+        memphis_username: &str,
+        memphis_password: &str,
+        name: String,
+    ) -> ConnectOptions {
+        ConnectOptions::with_user_and_password(
+            memphis_username.to_string(),
+            memphis_password.to_string(),
+        )
+        .flush_interval(Duration::from_millis(100))
+        .connection_timeout(Duration::from_secs(5))
+        .ping_interval(Duration::from_secs(1))
+        .request_timeout(Some(Duration::from_secs(5)))
+        .name(name)
     }
 
     pub(crate) fn get_jetstream_context(&self) -> &Context {
@@ -92,7 +101,10 @@ impl MemphisClient {
         &self.broker_connection
     }
 
-    pub async fn create_consumer(&self, mut consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, CreateConsumerError> {
+    pub async fn create_consumer(
+        &self,
+        mut consumer_options: MemphisConsumerOptions,
+    ) -> Result<MemphisConsumer, CreateConsumerError> {
         if !self.is_connected().await {
             error!("Tried to create consumer without being connected to Memphis");
             return Err(CreateConsumerError::NotConnected);
@@ -100,7 +112,8 @@ impl MemphisClient {
 
         consumer_options.consumer_name = consumer_options.consumer_name.to_lowercase();
         if consumer_options.generate_unique_suffix {
-            consumer_options.consumer_name = format!("{}_{}", consumer_options.consumer_name, get_unique_key(8));
+            consumer_options.consumer_name =
+                format!("{}_{}", consumer_options.consumer_name, get_unique_key(8));
         }
         let real_name = if consumer_options.consumer_group.is_empty() {
             &consumer_options.consumer_name
@@ -127,8 +140,12 @@ impl MemphisClient {
 
         let create_consumer_model_json = serde_json::to_string(&create_consumer_request).unwrap();
         let create_consumer_model_bytes = Bytes::from(create_consumer_model_json);
-        let res = self.broker_connection
-            .request(MemphisStations::MemphisConsumerCreations.to_string(), create_consumer_model_bytes)
+        let res = self
+            .broker_connection
+            .request(
+                MemphisStations::ConsumerCreations.to_string(),
+                create_consumer_model_bytes,
+            )
             .await;
 
         let res = match res {
@@ -139,7 +156,6 @@ impl MemphisClient {
             }
         };
 
-
         let error_message = match std::str::from_utf8(&res.payload) {
             Ok(s) => s,
             Err(e) => {
@@ -149,15 +165,21 @@ impl MemphisClient {
         };
 
         if !error_message.trim().is_empty() {
-            error!("Error creating consumer '({})': {}",&consumer_options.consumer_name, error_message);
+            error!(
+                "Error creating consumer '({})': {}",
+                &consumer_options.consumer_name, error_message
+            );
             return Err(CreateConsumerError::MemphisError(error_message.to_string()));
         }
 
-        trace!("Consumer '{}' created successfully", &consumer_options.consumer_name.clone());
-        return Ok(MemphisConsumer::new(
+        trace!(
+            "Consumer '{}' created successfully",
+            &consumer_options.consumer_name.clone()
+        );
+        Ok(MemphisConsumer::new(
             self.clone(),
             consumer_options.clone(),
             real_name.clone(),
-        ));
+        ))
     }
 }
