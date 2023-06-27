@@ -101,6 +101,23 @@ impl MemphisClient {
         &self.broker_connection
     }
 
+    /// Creates a consumer for the given station and returns a MemphisConsumer
+    /// # Arguments
+    /// * `consumer_options` - [MemphisConsumerOptions](MemphisConsumerOptions)
+    /// # Example
+    /// ```rust
+    /// use memphis_rust_community::memphis_client::MemphisClient;
+    /// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer");
+    ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
+    ///     // Start consuming messages
+    ///     consumer.consume().await.unwrap();
+    /// }
+
     pub async fn create_consumer(
         &self,
         mut consumer_options: MemphisConsumerOptions,
