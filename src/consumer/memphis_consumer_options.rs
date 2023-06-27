@@ -1,3 +1,16 @@
+/// Memphis Consumer Options
+///
+/// # Example
+/// ```rust
+/// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let options = MemphisConsumerOptions::new("station_name", "consumer_name")
+///         .with_consumer_group("consumer_group")
+///         .with_pull_interval_ms(1000)
+///         .with_batch_size(10);
+/// }
 #[derive(Debug, Clone)]
 pub struct MemphisConsumerOptions {
     pub station_name: String,

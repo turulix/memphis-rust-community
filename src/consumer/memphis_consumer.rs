@@ -12,11 +12,18 @@ use std::time::Duration;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 
+/// The MemphisConsumer is used to consume messages from a Memphis Station.
+/// See [MemphisClient::create_consumer](crate::memphis_client::MemphisClient::create_consumer) for more information.
 pub struct MemphisConsumer {
     memphis_client: MemphisClient,
     options: Arc<MemphisConsumerOptions>,
     cancellation_token: CancellationToken,
+    /// This will be equivalent to the consumer name, if no Consumer Group is provided.
+    /// If a Consumer Group is provided, this will be the Consumer Group name.
     real_name: String,
+    /// The receiver for the MemphisEvents.
+    /// This is used to communicate with the MemphisConsumer.
+    /// The MemphisConsumer will send events to this receiver.
     pub message_receiver: Receiver<MemphisEvent>,
     message_sender: Sender<MemphisEvent>,
 }
