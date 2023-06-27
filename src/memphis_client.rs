@@ -13,6 +13,32 @@ use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
+/// # Memphis Client
+///
+/// The Memphis Client is used to connect to Memphis.
+///
+/// ```rust
+/// use memphis_rust_community::memphis_client::MemphisClient;
+/// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
+///         .with_generate_unique_suffix(true);
+///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
+///
+///     // Start consuming messages
+///     consumer.consume().await.unwrap();
+///     tokio::spawn(async move {
+///         loop{
+///             let msg = consumer.message_receiver.recv().await;
+///             // Do something with the message
+///             break;
+///         }
+///     });
+/// }
+/// ```
 #[derive(Clone)]
 pub struct MemphisClient {
     jetstream_context: Arc<Context>,
@@ -22,6 +48,24 @@ pub struct MemphisClient {
 }
 
 impl MemphisClient {
+    /// Creates a new MemphisClient
+    /// # Arguments
+    /// * `memphis_host` - The host of the Memphis server
+    /// * `memphis_username` - The username of the Memphis user
+    /// * `memphis_password` - The password of the Memphis user
+    ///
+    /// # Example
+    /// ```rust
+    /// use memphis_rust_community::memphis_client::MemphisClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let client = MemphisClient::new(
+    ///         "localhost:6666",
+    ///         "root",
+    ///         "memphis"
+    ///     ).await.unwrap();
+    /// }
     pub async fn new(
         memphis_host: &str,
         memphis_username: &str,
@@ -102,8 +146,10 @@ impl MemphisClient {
     }
 
     /// Creates a consumer for the given station and returns a MemphisConsumer
+    /// You need to call **consume()** on the MemphisConsumer to start consuming messages.
     /// # Arguments
     /// * `consumer_options` - [MemphisConsumerOptions](MemphisConsumerOptions)
+    ///
     /// # Example
     /// ```rust
     /// use memphis_rust_community::memphis_client::MemphisClient;
@@ -112,12 +158,13 @@ impl MemphisClient {
     /// #[tokio::main]
     /// async fn main() {
     ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer");
+    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
+    ///         .with_generate_unique_suffix(true);
+    ///
     ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
     ///     // Start consuming messages
     ///     consumer.consume().await.unwrap();
     /// }
-
     pub async fn create_consumer(
         &self,
         mut consumer_options: MemphisConsumerOptions,

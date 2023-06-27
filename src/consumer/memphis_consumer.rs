@@ -29,7 +29,16 @@ pub struct MemphisConsumer {
 }
 
 impl MemphisConsumer {
-    pub fn new(
+    /// Creates a new MemphisConsumer.
+    /// This will also start pinging the consumer, to ensure its availability.
+    /// See [MemphisClient::create_consumer](MemphisClient::create_consumer) for more information.
+    ///
+    /// # Arguments
+    /// * `memphis_client` - The MemphisClient to use.
+    /// * `options` - The MemphisConsumerOptions to use.
+    /// * `real_name` - The real name of the consumer. This will be equivalent to the consumer name, if no Consumer Group is provided.
+    /// If a Consumer Group is provided, this will be the Consumer Group name.
+    pub(crate) fn new(
         memphis_client: MemphisClient,
         options: MemphisConsumerOptions,
         real_name: String,
@@ -123,7 +132,8 @@ impl MemphisConsumer {
     /// #[tokio::main]
     /// async fn main() {
     ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer");
+    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
+    ///         .with_generate_unique_suffix(true);
     ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
     ///
     ///     consumer.consume().await.unwrap();

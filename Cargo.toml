@@ -3,11 +3,12 @@ name = "memphis-rust-community"
 authors = ["turulix"]
 homepage = "https://github.com/turulix/memphis-rust-community"
 repository = "https://github.com/turulix/memphis-rust-community"
+documentation = "https://docs.rs/memphis-rust-community"
 description = "A Rust implementation of the Memphis Messaging Protocol"
 readme = "README.md"
 license = "GPL-3.0"
 license-file = "LICENSE"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 exclude = [
     "docker-compose.yml"

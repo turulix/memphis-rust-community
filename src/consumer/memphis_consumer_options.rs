@@ -8,6 +8,7 @@
 /// async fn main() {
 ///     let options = MemphisConsumerOptions::new("station_name", "consumer_name")
 ///         .with_consumer_group("consumer_group")
+///         .with_generate_unique_suffix(true)
 ///         .with_pull_interval_ms(1000)
 ///         .with_batch_size(10);
 /// }
