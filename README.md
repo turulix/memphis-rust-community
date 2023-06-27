@@ -20,12 +20,14 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-memphis-rust-client = "0.1.0"
+memphis-rust-community = "0.1.0"
 ```
 
 ## Usage
 
 ```rust
+use memphis_rust_community::memphis_client::MemphisClient;
+use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
 #[tokio::main]
 async fn main() {
     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
