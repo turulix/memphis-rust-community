@@ -1,4 +1,3 @@
-
 /// Memphis Consumer Options
 ///
 /// # Example
