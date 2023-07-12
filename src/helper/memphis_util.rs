@@ -1,4 +1,4 @@
-use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
+use crate::consumer::MemphisConsumerOptions;
 
 pub(crate) fn get_internal_name(name: &str) -> String {
     name.replace('.', "#")

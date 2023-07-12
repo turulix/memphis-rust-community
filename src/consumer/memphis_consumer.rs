@@ -1,8 +1,8 @@
-use crate::constants::memphis_constants::MemphisSubscriptions;
+use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::core::memphis_message::MemphisMessage;
 use crate::core::memphis_message_handler::MemphisEvent;
-use crate::helper::memphis_util::{get_effective_consumer_name, get_effective_stream_name};
+use crate::helper::memphis_util::{get_effective_consumer_name, get_effective_stream_name, get_unique_key};
 use crate::memphis_client::MemphisClient;
 use async_nats::jetstream::consumer::PullConsumer;
 use async_nats::{Error, Message};
@@ -12,12 +12,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
+use crate::consumer::consumer_error::ConsumerError;
+use crate::models::request::create_consumer_request::CreateConsumerRequest;
+use crate::models::request::destroy_consumer_request::DestroyConsumerRequest;
 
 /// The MemphisConsumer is used to consume messages from a Memphis Station.
-/// See [MemphisClient::create_consumer](MemphisClient::create_consumer) for more information.
+/// See [MemphisClient::create_consumer] for more information.
 pub struct MemphisConsumer {
     memphis_client: MemphisClient,
-    options: Arc<MemphisConsumerOptions>,
+    options: MemphisConsumerOptions,
     cancellation_token: CancellationToken,
 
     /// The receiver for the MemphisEvents.
@@ -30,87 +33,62 @@ pub struct MemphisConsumer {
 impl MemphisConsumer {
     /// Creates a new MemphisConsumer.
     /// This will also start pinging the consumer, to ensure its availability.
-    /// See [MemphisClient::create_consumer](MemphisClient::create_consumer) for more information.
+    /// See [MemphisClient::create_consumer] for more information.
     ///
     /// # Arguments
     /// * `memphis_client` - The MemphisClient to use.
     /// * `options` - The MemphisConsumerOptions to use.
-    /// * `real_name` - The real name of the consumer. This will be equivalent to the consumer name, if no Consumer Group is provided.
-    /// If a Consumer Group is provided, this will be the Consumer Group name.
-    pub(crate) fn new(memphis_client: MemphisClient, options: MemphisConsumerOptions) -> Self {
-        let (s, r) = channel(100);
+    pub(crate) async fn new(memphis_client: MemphisClient, mut options: MemphisConsumerOptions) -> Result<Self, ConsumerError> {
+        options.consumer_name = options.consumer_name.to_lowercase();
+        if options.generate_unique_suffix {
+            options.consumer_name =
+                format!("{}_{}", options.consumer_name, get_unique_key(8));
+        }
+
+        if options.start_consume_from_sequence <= 0 {
+            return Err(ConsumerError::InvalidSequence);
+        }
+
+        let create_consumer_request = CreateConsumerRequest {
+            consumer_name: &options.consumer_name,
+            station_name: &options.station_name,
+            connection_id: &memphis_client.connection_id.to_string(),
+            consumer_type: "application",
+            consumer_group: &options.consumer_group,
+            max_ack_time_ms: options.max_ack_time_ms,
+            max_msg_count_for_delivery: options.max_msg_deliveries,
+            start_consume_from_sequence: options.start_consume_from_sequence,
+            last_messages: options.last_messages,
+            username: &memphis_client.username,
+        };
+
+        match memphis_client.send_internal_request(&create_consumer_request, MemphisSpecialStation::ConsumerCreations).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Error creating consumer: {}", e.to_string());
+                return Err(e.into());
+            }
+        }
+
+        trace!(
+            "Consumer '{}' created successfully",
+            &options.consumer_name
+        );
+
+
+        let (tx, rx) = channel(100);
+
         let consumer = MemphisConsumer {
             memphis_client,
-            options: Arc::new(options),
+            options,
             cancellation_token: CancellationToken::new(),
-            message_receiver: r,
-            message_sender: s,
+            message_sender: tx,
+            message_receiver: rx
         };
 
         consumer.ping_consumer();
 
-        consumer
-    }
-    /// Starts pinging the consumer, to ensure its availability.
-    fn ping_consumer(&self) {
-        let cloned_token = self.cancellation_token.clone();
-        let cloned_options = self.options.clone();
-        let cloned_client = self.memphis_client.clone();
-        let cloned_sender = self.message_sender.clone();
-
-        tokio::spawn(async move {
-            fn send_message(sender: &Sender<MemphisEvent>, event: MemphisEvent) {
-                let _res = sender.send(event);
-            }
-
-            while !cloned_token.is_cancelled() {
-                let stream = match cloned_client
-                    .get_jetstream_context()
-                    .get_stream(get_effective_stream_name(&cloned_options))
-                    .await
-                {
-                    Ok(s) => s,
-                    Err(e) => {
-                        send_message(
-                            &cloned_sender,
-                            MemphisEvent::StationUnavailable(Arc::new(e)),
-                        );
-                        error!(
-                            "Station {} is unavailable. (Ping)",
-                            &cloned_options.station_name.clone()
-                        );
-                        tokio::time::sleep(Duration::from_secs(30)).await;
-                        continue;
-                    }
-                };
-
-                match stream
-                    .consumer_info(get_effective_consumer_name(&cloned_options))
-                    .await
-                {
-                    Ok(_) => {}
-                    Err(e) => {
-                        send_message(
-                            &cloned_sender,
-                            MemphisEvent::ConsumerUnavailable(Arc::new(e)),
-                        );
-                        error!(
-                            "Consumer '{}' on group '{}' is unavailable. (Ping)",
-                            &cloned_options.consumer_name, &cloned_options.consumer_group
-                        );
-                        tokio::time::sleep(Duration::from_secs(30)).await;
-                        continue;
-                    }
-                }
-
-                trace!(
-                    "Consumer '{}' on group '{}' is alive. (Ping)",
-                    &cloned_options.consumer_name,
-                    &cloned_options.consumer_group
-                );
-                tokio::time::sleep(Duration::from_secs(30)).await;
-            }
-        });
+        Ok(consumer)
     }
 
     /// # Starts consuming messages from Memphis.
@@ -211,7 +189,7 @@ impl MemphisConsumer {
     /// This is to ensure that messages are not duplicated.
     ///
     /// # Returns
-    /// A [Receiver](Receiver) that will receive the DLS messages.
+    /// A [Receiver] that will receive the DLS messages.
     pub async fn consume_dls(&self) -> Result<Receiver<Arc<Message>>, Error> {
         //TODO: Remove Arc once async_nats is updated to >=0.30.0 (https://github.com/nats-io/nats.rs/pull/975)
         let (s, r) = channel::<Arc<Message>>(100);
@@ -240,5 +218,81 @@ impl MemphisConsumer {
         });
         trace!("Successfully started consuming DLS messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
         Ok(r)
+    }
+
+    /// Sends a request to destroy/delete this Consumer.
+    pub async fn destroy(self) -> Result<(), ConsumerError>{
+        let destroy_request = DestroyConsumerRequest {
+            consumer_name: &self.options.consumer_name,
+            station_name: &self.options.station_name,
+            connection_id: &self.memphis_client.connection_id,
+            username: &self.memphis_client.username,
+        };
+
+        self.memphis_client.send_internal_request(&destroy_request, MemphisSpecialStation::ConsumerDestructions).await?;
+
+        Ok(())
+    }
+
+    /// Starts pinging the consumer, to ensure its availability.
+    fn ping_consumer(&self) {
+        let cloned_token = self.cancellation_token.clone();
+        let cloned_options = self.options.clone();
+        let cloned_client = self.memphis_client.clone();
+        let cloned_sender = self.message_sender.clone();
+
+        tokio::spawn(async move {
+            fn send_message(sender: &Sender<MemphisEvent>, event: MemphisEvent) {
+                let _res = sender.send(event);
+            }
+
+            while !cloned_token.is_cancelled() {
+                let stream = match cloned_client
+                    .get_jetstream_context()
+                    .get_stream(get_effective_stream_name(&cloned_options))
+                    .await
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        send_message(
+                            &cloned_sender,
+                            MemphisEvent::StationUnavailable(Arc::new(e)),
+                        );
+                        error!(
+                            "Station {} is unavailable. (Ping)",
+                            &cloned_options.station_name.clone()
+                        );
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                        continue;
+                    }
+                };
+
+                match stream
+                    .consumer_info(get_effective_consumer_name(&cloned_options))
+                    .await
+                {
+                    Ok(_) => {}
+                    Err(e) => {
+                        send_message(
+                            &cloned_sender,
+                            MemphisEvent::ConsumerUnavailable(Arc::new(e)),
+                        );
+                        error!(
+                            "Consumer '{}' on group '{}' is unavailable. (Ping)",
+                            &cloned_options.consumer_name, &cloned_options.consumer_group
+                        );
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                        continue;
+                    }
+                }
+
+                trace!(
+                    "Consumer '{}' on group '{}' is alive. (Ping)",
+                    &cloned_options.consumer_name,
+                    &cloned_options.consumer_group
+                );
+                tokio::time::sleep(Duration::from_secs(30)).await;
+            }
+        });
     }
 }

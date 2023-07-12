@@ -1,17 +1,18 @@
-use crate::constants::memphis_constants::MemphisStations;
-use crate::consumer::create_consumer_error::CreateConsumerError;
-use crate::consumer::memphis_consumer::MemphisConsumer;
-use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
-use crate::helper::memphis_util::get_unique_key;
-use crate::models::request::create_consumer_request::CreateConsumerRequest;
-use async_nats::connection::State;
-use async_nats::jetstream::Context;
-use async_nats::{jetstream, Client, ConnectError, ConnectOptions};
-use bytes::Bytes;
-use log::{error, trace};
 use std::sync::Arc;
 use std::time::Duration;
+
+use async_nats::connection::State;
+use async_nats::jetstream::Context;
+use async_nats::{jetstream, Client, ConnectError, ConnectOptions, Message};
+use bytes::Bytes;
+use serde::Serialize;
 use uuid::Uuid;
+
+use crate::constants::memphis_constants::MemphisSpecialStation;
+use crate::consumer::ConsumerError;
+use crate::consumer::MemphisConsumer;
+use crate::consumer::MemphisConsumerOptions;
+use crate::request_error::RequestError;
 
 /// # Memphis Client
 ///
@@ -43,8 +44,8 @@ use uuid::Uuid;
 pub struct MemphisClient {
     jetstream_context: Arc<Context>,
     broker_connection: Arc<Client>,
-    username: Arc<String>,
-    connection_id: Arc<String>,
+    pub(crate) username: Arc<String>,
+    pub(crate) connection_id: Arc<String>,
 }
 
 impl MemphisClient {
@@ -113,7 +114,7 @@ impl MemphisClient {
         })
     }
 
-    pub async fn is_connected(&self) -> bool {
+    pub fn is_connected(&self) -> bool {
         match &self.broker_connection.connection_state() {
             State::Pending => false,
             State::Connected => true,
@@ -135,14 +136,6 @@ impl MemphisClient {
         .ping_interval(Duration::from_secs(1))
         .request_timeout(Some(Duration::from_secs(5)))
         .name(name)
-    }
-
-    pub(crate) fn get_jetstream_context(&self) -> &Context {
-        &self.jetstream_context
-    }
-
-    pub(crate) fn get_broker_connection(&self) -> &Client {
-        &self.broker_connection
     }
 
     /// Creates a consumer for the given station and returns a MemphisConsumer
@@ -167,74 +160,45 @@ impl MemphisClient {
     /// }
     pub async fn create_consumer(
         &self,
-        mut consumer_options: MemphisConsumerOptions,
-    ) -> Result<MemphisConsumer, CreateConsumerError> {
-        if !self.is_connected().await {
-            error!("Tried to create consumer without being connected to Memphis");
-            return Err(CreateConsumerError::NotConnected);
+        consumer_options: MemphisConsumerOptions,
+    ) -> Result<MemphisConsumer, ConsumerError> {
+        MemphisConsumer::new(self.clone(), consumer_options).await
+    }
+
+    pub(crate) fn get_jetstream_context(&self) -> &Context {
+        &self.jetstream_context
+    }
+
+    pub(crate) fn get_broker_connection(&self) -> &Client {
+        &self.broker_connection
+    }
+
+    /// Sends a request to a internal/special Memphis Station and handles the errors
+    pub(crate) async fn send_internal_request(
+        &self,
+        request: &impl Serialize,
+        request_type: MemphisSpecialStation,
+    ) -> Result<Message, RequestError> {
+        if !self.is_connected() {
+            return Err(RequestError::NotConnected);
         }
 
-        consumer_options.consumer_name = consumer_options.consumer_name.to_lowercase();
-        if consumer_options.generate_unique_suffix {
-            consumer_options.consumer_name =
-                format!("{}_{}", consumer_options.consumer_name, get_unique_key(8));
-        }
-
-        if consumer_options.start_consume_from_sequence <= 0 {
-            return Err(CreateConsumerError::InvalidSequence);
-        }
-
-        let create_consumer_request = CreateConsumerRequest {
-            consumer_name: consumer_options.clone().consumer_name,
-            station_name: consumer_options.clone().station_name,
-            connection_id: self.connection_id.to_string(),
-            consumer_type: "application".to_string(),
-            consumer_group: consumer_options.clone().consumer_group,
-            max_ack_time_ms: consumer_options.clone().max_ack_time_ms,
-            max_msg_count_for_delivery: consumer_options.clone().max_msg_deliveries,
-            start_consume_from_sequence: consumer_options.clone().start_consume_from_sequence,
-            last_messages: consumer_options.clone().last_messages,
-            username: self.username.to_string(),
-        };
-
-        let create_consumer_model_json = serde_json::to_string(&create_consumer_request).unwrap();
+        let create_consumer_model_json = serde_json::to_string(&request)?;
         let create_consumer_model_bytes = Bytes::from(create_consumer_model_json);
         let res = self
-            .broker_connection
-            .request(
-                MemphisStations::ConsumerCreations.to_string(),
-                create_consumer_model_bytes,
-            )
-            .await;
+            .get_broker_connection()
+            .request(request_type.to_string(), create_consumer_model_bytes)
+            .await
+            .map_err(|e| RequestError::NatsError(e))?;
 
-        let res = match res {
-            Ok(m) => m,
-            Err(e) => {
-                error!("Error creating consumer: {}", e.to_string());
-                return Err(CreateConsumerError::NatsError(e));
-            }
-        };
+        let error_message = std::str::from_utf8(&res.payload)
+            .map_err(|e| RequestError::MemphisError(e.to_string()))?;
 
-        let error_message = match std::str::from_utf8(&res.payload) {
-            Ok(s) => s,
-            Err(e) => {
-                error!("Error creating consumer: {}", e.to_string());
-                return Err(CreateConsumerError::MemphisError(e.to_string()));
-            }
-        };
 
         if !error_message.trim().is_empty() {
-            error!(
-                "Error creating consumer '({})': {}",
-                &consumer_options.consumer_name, error_message
-            );
-            return Err(CreateConsumerError::MemphisError(error_message.to_string()));
+            return Err(RequestError::MemphisError(error_message.to_string()));
         }
 
-        trace!(
-            "Consumer '{}' created successfully",
-            &consumer_options.consumer_name.clone()
-        );
-        Ok(MemphisConsumer::new(self.clone(), consumer_options.clone()))
+        Ok(res)
     }
 }

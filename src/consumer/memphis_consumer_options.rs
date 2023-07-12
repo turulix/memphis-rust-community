@@ -2,7 +2,7 @@
 ///
 /// # Example
 /// ```rust
-/// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+/// use memphis_rust_community::consumer::MemphisConsumerOptions;
 ///
 /// #[tokio::main]
 /// async fn main() {

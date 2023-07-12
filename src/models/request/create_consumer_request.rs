@@ -1,21 +1,21 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct CreateConsumerRequest {
+pub(crate) struct CreateConsumerRequest<'a> {
     #[serde(rename = "name")]
-    pub(crate) consumer_name: String,
+    pub(crate) consumer_name: &'a str,
 
     #[serde(rename = "station_name")]
-    pub(crate) station_name: String,
+    pub(crate) station_name: &'a str,
 
     #[serde(rename = "connection_id")]
-    pub(crate) connection_id: String,
+    pub(crate) connection_id: &'a str,
 
     #[serde(rename = "consumer_type")]
-    pub(crate) consumer_type: String,
+    pub(crate) consumer_type: &'a str,
 
     #[serde(rename = "consumers_group")]
-    pub(crate) consumer_group: String,
+    pub(crate) consumer_group: &'a str,
 
     #[serde(rename = "max_ack_time_ms")]
     pub(crate) max_ack_time_ms: i32,
@@ -24,7 +24,7 @@ pub(crate) struct CreateConsumerRequest {
     pub(crate) max_msg_count_for_delivery: i32,
 
     #[serde(rename = "username")]
-    pub(crate) username: String,
+    pub(crate) username: &'a str,
 
     #[serde(rename = "start_consume_from_sequence")]
     pub(crate) start_consume_from_sequence: i32,

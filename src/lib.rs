@@ -29,3 +29,6 @@ pub mod core;
 pub(crate) mod helper;
 pub mod memphis_client;
 pub(crate) mod models;
+mod request_error;
+
+pub use request_error::RequestError;

@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-pub(crate) enum MemphisStations {
+pub(crate) enum MemphisSpecialStation {
     ProducerCreations,
     ConsumerCreations,
     StationCreations,
@@ -15,22 +15,22 @@ pub(crate) enum MemphisStations {
     StationDestruction,
 }
 
-impl ToString for MemphisStations {
+impl ToString for MemphisSpecialStation {
     fn to_string(&self) -> String {
         match self {
-            MemphisStations::ProducerCreations => String::from("$memphis_producer_creations"),
-            MemphisStations::ConsumerCreations => String::from("$memphis_consumer_creations"),
-            MemphisStations::StationCreations => String::from("$memphis_station_creations"),
+            MemphisSpecialStation::ProducerCreations => String::from("$memphis_producer_creations"),
+            MemphisSpecialStation::ConsumerCreations => String::from("$memphis_consumer_creations"),
+            MemphisSpecialStation::StationCreations => String::from("$memphis_station_creations"),
 
-            MemphisStations::ProducerDestructions => String::from("$memphis_producer_destructions"),
-            MemphisStations::ConsumerDestructions => String::from("$memphis_consumer_destructions"),
+            MemphisSpecialStation::ProducerDestructions => String::from("$memphis_producer_destructions"),
+            MemphisSpecialStation::ConsumerDestructions => String::from("$memphis_consumer_destructions"),
 
-            MemphisStations::SchemaAttachments => String::from("$memphis_schema_attachments"),
-            MemphisStations::SchemaDetachments => String::from("$memphis_schema_detachments"),
+            MemphisSpecialStation::SchemaAttachments => String::from("$memphis_schema_attachments"),
+            MemphisSpecialStation::SchemaDetachments => String::from("$memphis_schema_detachments"),
 
-            MemphisStations::Notifications => String::from("$memphis_notifications"),
+            MemphisSpecialStation::Notifications => String::from("$memphis_notifications"),
 
-            MemphisStations::StationDestruction => String::from("$memphis_station_destructions"),
+            MemphisSpecialStation::StationDestruction => String::from("$memphis_station_destructions"),
         }
     }
 }
