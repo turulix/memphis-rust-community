@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_nats::jetstream::consumer::PullConsumer;
 use async_nats::{Error, Message};
 use futures_util::StreamExt;
-use log::{error, trace};
+use log::{debug, error, info, trace};
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 
@@ -13,12 +13,10 @@ use crate::consumer::consumer_error::ConsumerError;
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::core::memphis_message::MemphisMessage;
 use crate::core::memphis_message_handler::MemphisEvent;
-use crate::helper::memphis_util::{
-    get_effective_consumer_name, get_effective_stream_name, get_unique_key,
-};
+use crate::helper::memphis_util::{get_effective_consumer_name, get_internal_name, sanitize_name};
 use crate::memphis_client::MemphisClient;
-use crate::models::request::create_consumer_request::CreateConsumerRequest;
-use crate::models::request::destroy_consumer_request::DestroyConsumerRequest;
+use crate::models::request::CreateConsumerRequest;
+use crate::models::request::DestroyConsumerRequest;
 
 /// The MemphisConsumer is used to consume messages from a Memphis Station.
 /// See [MemphisClient::create_consumer] for more information.
@@ -46,10 +44,7 @@ impl MemphisConsumer {
         memphis_client: MemphisClient,
         mut options: MemphisConsumerOptions,
     ) -> Result<Self, ConsumerError> {
-        options.consumer_name = options.consumer_name.to_lowercase();
-        if options.generate_unique_suffix {
-            options.consumer_name = format!("{}_{}", options.consumer_name, get_unique_key(8));
-        }
+        sanitize_name(&mut options.consumer_name, options.generate_unique_suffix);
 
         if options.start_consume_from_sequence <= 0 {
             return Err(ConsumerError::InvalidSequence);
@@ -68,25 +63,22 @@ impl MemphisConsumer {
             username: &memphis_client.username,
         };
 
-        match memphis_client
+        if let Err(e) = memphis_client
             .send_internal_request(
                 &create_consumer_request,
                 MemphisSpecialStation::ConsumerCreations,
             )
             .await
         {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Error creating consumer: {}", e.to_string());
-                return Err(e.into());
-            }
+            error!("Error creating consumer: {}", e.to_string());
+            return Err(e.into());
         }
 
-        trace!("Consumer '{}' created successfully", &options.consumer_name);
+        info!("Consumer '{}' created successfully", &options.consumer_name);
 
         let (tx, rx) = channel(100);
 
-        let consumer = MemphisConsumer {
+        let consumer = Self {
             memphis_client,
             options,
             cancellation_token: CancellationToken::new(),
@@ -167,10 +159,7 @@ impl MemphisConsumer {
                 let mut messages = match messages {
                     Ok(m) => m,
                     Err(e) => {
-                        error!(
-                            "Error while fetching messages from JetStream. {:?}",
-                            e
-                        );
+                        error!("Error while fetching messages from JetStream. {:?}", e);
                         continue;
                     }
                 };
@@ -191,7 +180,7 @@ impl MemphisConsumer {
             }
         });
 
-        trace!("Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
+        debug!("Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
         Ok(())
     }
 
@@ -238,7 +227,7 @@ impl MemphisConsumer {
                 }
             }
         });
-        trace!("Successfully started consuming DLS messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
+        debug!("Successfully started consuming DLS messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
         Ok(r)
     }
 
@@ -251,12 +240,20 @@ impl MemphisConsumer {
             username: &self.memphis_client.username,
         };
 
-        self.memphis_client
+        if let Err(e) = self
+            .memphis_client
             .send_internal_request(
                 &destroy_request,
                 MemphisSpecialStation::ConsumerDestructions,
             )
-            .await?;
+            .await
+        {
+            error!("Error destroying consumer. {}", &e);
+            return Err(e.into());
+        }
+
+        self.cancellation_token.cancel();
+        info!("Destroyed consumer {}.", &self.options.consumer_name);
 
         Ok(())
     }
@@ -321,4 +318,8 @@ impl MemphisConsumer {
             }
         });
     }
+}
+
+fn get_effective_stream_name(options: &MemphisConsumerOptions) -> String {
+    get_internal_name(&options.station_name)
 }

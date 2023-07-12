@@ -12,6 +12,7 @@ use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::consumer::ConsumerError;
 use crate::consumer::MemphisConsumer;
 use crate::consumer::MemphisConsumerOptions;
+use crate::producer::{MemphisProducer, MemphisProducerOptions};
 use crate::request_error::RequestError;
 
 /// # Memphis Client
@@ -122,22 +123,6 @@ impl MemphisClient {
         }
     }
 
-    fn create_settings(
-        memphis_username: &str,
-        memphis_password: &str,
-        name: String,
-    ) -> ConnectOptions {
-        ConnectOptions::with_user_and_password(
-            memphis_username.to_string(),
-            memphis_password.to_string(),
-        )
-        .flush_interval(Duration::from_millis(100))
-        .connection_timeout(Duration::from_secs(5))
-        .ping_interval(Duration::from_secs(1))
-        .request_timeout(Some(Duration::from_secs(5)))
-        .name(name)
-    }
-
     /// Creates a consumer for the given station and returns a MemphisConsumer
     /// You need to call **consume()** on the MemphisConsumer to start consuming messages.
     /// # Arguments
@@ -146,7 +131,7 @@ impl MemphisClient {
     /// # Example
     /// ```rust
     /// use memphis_rust_community::memphis_client::MemphisClient;
-    /// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+    /// use memphis_rust_community::consumer::MemphisConsumerOptions;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -163,6 +148,29 @@ impl MemphisClient {
         consumer_options: MemphisConsumerOptions,
     ) -> Result<MemphisConsumer, ConsumerError> {
         MemphisConsumer::new(self.clone(), consumer_options).await
+    }
+
+    pub async fn create_producer(
+        &self,
+        producer_options: MemphisProducerOptions
+    ) -> Result<MemphisProducer, RequestError> {
+        MemphisProducer::new(self.clone(), producer_options).await
+    }
+
+    fn create_settings(
+        memphis_username: &str,
+        memphis_password: &str,
+        name: String,
+    ) -> ConnectOptions {
+        ConnectOptions::with_user_and_password(
+            memphis_username.to_string(),
+            memphis_password.to_string(),
+        )
+            .flush_interval(Duration::from_millis(100))
+            .connection_timeout(Duration::from_secs(5))
+            .ping_interval(Duration::from_secs(1))
+            .request_timeout(Some(Duration::from_secs(5)))
+            .name(name)
     }
 
     pub(crate) fn get_jetstream_context(&self) -> &Context {
@@ -189,7 +197,7 @@ impl MemphisClient {
             .get_broker_connection()
             .request(request_type.to_string(), create_consumer_model_bytes)
             .await
-            .map_err(|e| RequestError::NatsError(e))?;
+            .map_err(|e| RequestError::NatsError(e.into()))?;
 
         let error_message = std::str::from_utf8(&res.payload)
             .map_err(|e| RequestError::MemphisError(e.to_string()))?;

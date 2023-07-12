@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub(crate) struct CreateConsumerRequest<'a> {
     #[serde(rename = "name")]
     pub(crate) consumer_name: &'a str,
@@ -31,4 +31,19 @@ pub(crate) struct CreateConsumerRequest<'a> {
 
     #[serde(rename = "last_messages")]
     pub(crate) last_messages: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct DestroyConsumerRequest<'a> {
+    #[serde(rename = "name")]
+    pub(crate) consumer_name: &'a str,
+
+    #[serde(rename = "station_name")]
+    pub(crate) station_name: &'a str,
+
+    #[serde(rename = "connection_id")]
+    pub(crate) connection_id: &'a str,
+
+    #[serde(rename = "username")]
+    pub(crate) username: &'a str,
 }

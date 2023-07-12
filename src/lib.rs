@@ -4,7 +4,7 @@
 //! # Connecting to Memphis and Consuming Messages
 //! ```rust
 //! use memphis_rust_community::memphis_client::MemphisClient;
-//! use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+//! use memphis_rust_community::consumer::MemphisConsumerOptions;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -24,12 +24,16 @@
 //! }
 //! ```
 #![forbid(unsafe_code)]
-pub(crate) mod constants;
-pub mod consumer;
-pub mod core;
-pub(crate) mod helper;
-pub mod memphis_client;
-pub(crate) mod models;
-mod request_error;
 
 pub use request_error::RequestError;
+
+pub mod consumer;
+pub mod core;
+pub mod memphis_client;
+pub mod producer;
+
+pub(crate) mod constants;
+pub(crate) mod helper;
+pub(crate) mod models;
+
+mod request_error;
