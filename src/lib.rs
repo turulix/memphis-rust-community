@@ -23,6 +23,7 @@
 //!     });
 //! }
 //! ```
+#![forbid(unsafe_code)]
 pub(crate) mod constants;
 pub mod consumer;
 pub mod core;

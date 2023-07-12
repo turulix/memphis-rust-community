@@ -1,18 +1,22 @@
-use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
-use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
-use crate::core::memphis_message::MemphisMessage;
-use crate::core::memphis_message_handler::MemphisEvent;
-use crate::helper::memphis_util::{get_effective_consumer_name, get_effective_stream_name, get_unique_key};
-use crate::memphis_client::MemphisClient;
+use std::sync::Arc;
+use std::time::Duration;
+
 use async_nats::jetstream::consumer::PullConsumer;
 use async_nats::{Error, Message};
 use futures_util::StreamExt;
 use log::{error, trace};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
+
+use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
 use crate::consumer::consumer_error::ConsumerError;
+use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
+use crate::core::memphis_message::MemphisMessage;
+use crate::core::memphis_message_handler::MemphisEvent;
+use crate::helper::memphis_util::{
+    get_effective_consumer_name, get_effective_stream_name, get_unique_key,
+};
+use crate::memphis_client::MemphisClient;
 use crate::models::request::create_consumer_request::CreateConsumerRequest;
 use crate::models::request::destroy_consumer_request::DestroyConsumerRequest;
 
@@ -38,11 +42,13 @@ impl MemphisConsumer {
     /// # Arguments
     /// * `memphis_client` - The MemphisClient to use.
     /// * `options` - The MemphisConsumerOptions to use.
-    pub(crate) async fn new(memphis_client: MemphisClient, mut options: MemphisConsumerOptions) -> Result<Self, ConsumerError> {
+    pub(crate) async fn new(
+        memphis_client: MemphisClient,
+        mut options: MemphisConsumerOptions,
+    ) -> Result<Self, ConsumerError> {
         options.consumer_name = options.consumer_name.to_lowercase();
         if options.generate_unique_suffix {
-            options.consumer_name =
-                format!("{}_{}", options.consumer_name, get_unique_key(8));
+            options.consumer_name = format!("{}_{}", options.consumer_name, get_unique_key(8));
         }
 
         if options.start_consume_from_sequence <= 0 {
@@ -62,7 +68,13 @@ impl MemphisConsumer {
             username: &memphis_client.username,
         };
 
-        match memphis_client.send_internal_request(&create_consumer_request, MemphisSpecialStation::ConsumerCreations).await {
+        match memphis_client
+            .send_internal_request(
+                &create_consumer_request,
+                MemphisSpecialStation::ConsumerCreations,
+            )
+            .await
+        {
             Ok(_) => {}
             Err(e) => {
                 error!("Error creating consumer: {}", e.to_string());
@@ -70,11 +82,7 @@ impl MemphisConsumer {
             }
         }
 
-        trace!(
-            "Consumer '{}' created successfully",
-            &options.consumer_name
-        );
-
+        trace!("Consumer '{}' created successfully", &options.consumer_name);
 
         let (tx, rx) = channel(100);
 
@@ -83,7 +91,7 @@ impl MemphisConsumer {
             options,
             cancellation_token: CancellationToken::new(),
             message_sender: tx,
-            message_receiver: rx
+            message_receiver: rx,
         };
 
         consumer.ping_consumer();
@@ -102,7 +110,7 @@ impl MemphisConsumer {
     /// # Example
     /// ```rust
     /// use memphis_rust_community::memphis_client::MemphisClient;
-    /// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+    /// use memphis_rust_community::consumer::MemphisConsumerOptions;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -150,13 +158,22 @@ impl MemphisConsumer {
 
                 if messages.is_err() {
                     error!(
-                        "Error while fetching messages from JetStream. {}",
-                        messages.err().unwrap()
+                        "Error while fetching messages from JetStream. {:?}",
+                        messages.err()
                     );
                     continue;
                 }
 
-                let mut messages = messages.unwrap();
+                let mut messages = match messages {
+                    Ok(m) => m,
+                    Err(e) => {
+                        error!(
+                            "Error while fetching messages from JetStream. {:?}",
+                            e
+                        );
+                        continue;
+                    }
+                };
                 while let Some(Ok(msg)) = messages.next().await {
                     trace!(
                         "Message received from Memphis. (Subject: {}, Sequence: {})",
@@ -206,13 +223,18 @@ impl MemphisConsumer {
             .queue_subscribe(subject, get_effective_consumer_name(&self.options))
             .await?;
 
+        let cancellation_token = self.cancellation_token.clone();
+
         tokio::spawn(async move {
-            while let Some(message) = dls_sub.next().await {
-                match s.send(Arc::new(message)) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error while sending DLS message to the channel. {}", e);
-                    }
+            loop {
+                tokio::select! {
+                    Some(message) = dls_sub.next() => {
+                        if let Err(e) = s.send(Arc::new(message)) {
+                            error!("Error while sending DLS message to the channel. {}", e);
+                        }
+                    },
+                    _ = cancellation_token.cancelled() => break,
+                    else => break
                 }
             }
         });
@@ -221,7 +243,7 @@ impl MemphisConsumer {
     }
 
     /// Sends a request to destroy/delete this Consumer.
-    pub async fn destroy(self) -> Result<(), ConsumerError>{
+    pub async fn destroy(self) -> Result<(), ConsumerError> {
         let destroy_request = DestroyConsumerRequest {
             consumer_name: &self.options.consumer_name,
             station_name: &self.options.station_name,
@@ -229,7 +251,12 @@ impl MemphisConsumer {
             username: &self.memphis_client.username,
         };
 
-        self.memphis_client.send_internal_request(&destroy_request, MemphisSpecialStation::ConsumerDestructions).await?;
+        self.memphis_client
+            .send_internal_request(
+                &destroy_request,
+                MemphisSpecialStation::ConsumerDestructions,
+            )
+            .await?;
 
         Ok(())
     }
@@ -245,7 +272,6 @@ impl MemphisConsumer {
             fn send_message(sender: &Sender<MemphisEvent>, event: MemphisEvent) {
                 let _res = sender.send(event);
             }
-
             while !cloned_token.is_cancelled() {
                 let stream = match cloned_client
                     .get_jetstream_context()

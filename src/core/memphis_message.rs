@@ -43,7 +43,7 @@ impl MemphisMessage {
                             id: memphis_id.to_string(),
                             consumer_group_name: self.consumer_group.clone(),
                         };
-                        let msg_to_ack_json = serde_json::to_string(&msg_to_ack_model).unwrap();
+                        let msg_to_ack_json = serde_json::to_string(&msg_to_ack_model)?;
                         let msg_to_ack_bytes = bytes::Bytes::from(msg_to_ack_json);
                         self.memphis_client
                             .get_broker_connection()
