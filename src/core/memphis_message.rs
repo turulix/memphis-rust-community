@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::constants::memphis_constants::MemphisSubjects;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::pm_ack_msg::PmAckMsg;
@@ -93,5 +94,17 @@ impl MemphisMessage {
             }
         }
         Err(())
+    }
+}
+
+impl Debug for MemphisMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let data = self.get_data_as_string().unwrap_or_else(|_| format!("{:x?}", self.get_data()));
+
+        f.debug_struct("MemphisMessage")
+            .field("msg", &data)
+            .field("consumer_group", &self.consumer_group)
+            .field("max_ack_time_ms", &self.max_ack_time_ms)
+            .finish_non_exhaustive()
     }
 }
