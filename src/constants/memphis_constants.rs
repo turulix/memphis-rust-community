@@ -60,7 +60,7 @@ pub(crate) enum MemphisSubscriptions {
 impl ToString for MemphisSubscriptions {
     fn to_string(&self) -> String {
         match self {
-            MemphisSubscriptions::DlsPrefix => String::from("$memphis_dlq_"),
+            MemphisSubscriptions::DlsPrefix => String::from("$memphis_dls_"),
         }
     }
 }

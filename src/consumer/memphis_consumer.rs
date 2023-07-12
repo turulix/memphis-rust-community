@@ -1,10 +1,11 @@
+use crate::constants::memphis_constants::MemphisSubscriptions;
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::core::memphis_message::MemphisMessage;
 use crate::core::memphis_message_handler::MemphisEvent;
-use crate::helper::memphis_util::get_internal_name;
+use crate::helper::memphis_util::{get_effective_consumer_name, get_effective_stream_name};
 use crate::memphis_client::MemphisClient;
 use async_nats::jetstream::consumer::PullConsumer;
-use async_nats::Error;
+use async_nats::{Error, Message};
 use futures_util::StreamExt;
 use log::{error, trace};
 use std::sync::Arc;
@@ -13,14 +14,12 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 
 /// The MemphisConsumer is used to consume messages from a Memphis Station.
-/// See [MemphisClient::create_consumer](crate::memphis_client::MemphisClient::create_consumer) for more information.
+/// See [MemphisClient::create_consumer](MemphisClient::create_consumer) for more information.
 pub struct MemphisConsumer {
     memphis_client: MemphisClient,
     options: Arc<MemphisConsumerOptions>,
     cancellation_token: CancellationToken,
-    /// This will be equivalent to the consumer name, if no Consumer Group is provided.
-    /// If a Consumer Group is provided, this will be the Consumer Group name.
-    real_name: String,
+
     /// The receiver for the MemphisEvents.
     /// This is used to communicate with the MemphisConsumer.
     /// The MemphisConsumer will send events to this receiver.
@@ -38,11 +37,7 @@ impl MemphisConsumer {
     /// * `options` - The MemphisConsumerOptions to use.
     /// * `real_name` - The real name of the consumer. This will be equivalent to the consumer name, if no Consumer Group is provided.
     /// If a Consumer Group is provided, this will be the Consumer Group name.
-    pub(crate) fn new(
-        memphis_client: MemphisClient,
-        options: MemphisConsumerOptions,
-        real_name: String,
-    ) -> Self {
+    pub(crate) fn new(memphis_client: MemphisClient, options: MemphisConsumerOptions) -> Self {
         let (s, r) = channel(100);
         let consumer = MemphisConsumer {
             memphis_client,
@@ -50,7 +45,6 @@ impl MemphisConsumer {
             cancellation_token: CancellationToken::new(),
             message_receiver: r,
             message_sender: s,
-            real_name,
         };
 
         consumer.ping_consumer();
@@ -63,7 +57,7 @@ impl MemphisConsumer {
         let cloned_options = self.options.clone();
         let cloned_client = self.memphis_client.clone();
         let cloned_sender = self.message_sender.clone();
-        let cloned_real_name = self.real_name.clone();
+
         tokio::spawn(async move {
             fn send_message(sender: &Sender<MemphisEvent>, event: MemphisEvent) {
                 let _res = sender.send(event);
@@ -72,7 +66,7 @@ impl MemphisConsumer {
             while !cloned_token.is_cancelled() {
                 let stream = match cloned_client
                     .get_jetstream_context()
-                    .get_stream(&cloned_options.station_name.clone())
+                    .get_stream(get_effective_stream_name(&cloned_options))
                     .await
                 {
                     Ok(s) => s,
@@ -90,7 +84,10 @@ impl MemphisConsumer {
                     }
                 };
 
-                match stream.consumer_info(&cloned_real_name).await {
+                match stream
+                    .consumer_info(get_effective_consumer_name(&cloned_options))
+                    .await
+                {
                     Ok(_) => {}
                     Err(e) => {
                         send_message(
@@ -152,11 +149,14 @@ impl MemphisConsumer {
         let cloned_options = self.options.clone();
         let cloned_sender = self.message_sender.clone();
 
+        // Memphis will create a stream with the name of the station.
+        // On this Stream it will create a consumer with the name of the consumer Group.
+        // If no consumer group is provided, the consumer name will be used.
         let consumer: PullConsumer = cloned_client
             .get_jetstream_context()
-            .get_stream(get_internal_name(&cloned_options.station_name))
+            .get_stream(&get_effective_stream_name(&self.options))
             .await?
-            .get_consumer(get_internal_name(&self.real_name).as_str())
+            .get_consumer(&get_effective_consumer_name(&self.options))
             .await?;
 
         tokio::spawn(async move {
@@ -198,5 +198,47 @@ impl MemphisConsumer {
 
         trace!("Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
         Ok(())
+    }
+
+    /// # Starts consuming DLS messages from Memphis.
+    /// DLS messages are messages that were not acknowledged in time by the consumer or the Schema Validation failed.
+    ///
+    /// This method will spawn a new Tokio task that will start to consume DLS messages from Memphis.
+    /// The messages will be sent to the receiver.
+    ///
+    /// # Note
+    /// If this method is called multiple times, the messages will be split between the receivers.
+    /// This is to ensure that messages are not duplicated.
+    ///
+    /// # Returns
+    /// A [Receiver](Receiver) that will receive the DLS messages.
+    pub async fn consume_dls(&self) -> Result<Receiver<Arc<Message>>, Error> {
+        //TODO: Remove Arc once async_nats is updated to >=0.30.0 (https://github.com/nats-io/nats.rs/pull/975)
+        let (s, r) = channel::<Arc<Message>>(100);
+        let subject = format!(
+            "{}{}_{}",
+            MemphisSubscriptions::DlsPrefix.to_string(),
+            get_effective_stream_name(&self.options),
+            get_effective_consumer_name(&self.options)
+        );
+
+        let mut dls_sub = self
+            .memphis_client
+            .get_broker_connection()
+            .queue_subscribe(subject, get_effective_consumer_name(&self.options))
+            .await?;
+
+        tokio::spawn(async move {
+            while let Some(message) = dls_sub.next().await {
+                match s.send(Arc::new(message)) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Error while sending DLS message to the channel. {}", e);
+                    }
+                }
+            }
+        });
+        trace!("Successfully started consuming DLS messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
+        Ok(r)
     }
 }
