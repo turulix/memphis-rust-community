@@ -179,11 +179,6 @@ impl MemphisClient {
             consumer_options.consumer_name =
                 format!("{}_{}", consumer_options.consumer_name, get_unique_key(8));
         }
-        let real_name = if consumer_options.consumer_group.is_empty() {
-            &consumer_options.consumer_name
-        } else {
-            &consumer_options.consumer_group
-        };
 
         if consumer_options.start_consume_from_sequence <= 0 {
             return Err(CreateConsumerError::InvalidSequence);
@@ -240,10 +235,6 @@ impl MemphisClient {
             "Consumer '{}' created successfully",
             &consumer_options.consumer_name.clone()
         );
-        Ok(MemphisConsumer::new(
-            self.clone(),
-            consumer_options.clone(),
-            real_name.clone(),
-        ))
+        Ok(MemphisConsumer::new(self.clone(), consumer_options.clone()))
     }
 }
