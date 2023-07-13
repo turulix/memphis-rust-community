@@ -1,7 +1,7 @@
 pub struct MemphisProducerOptions {
     pub station_name: String,
     pub producer_name: String,
-    pub generate_unique_suffix: bool
+    pub generate_unique_suffix: bool,
 }
 
 impl Default for MemphisProducerOptions {
@@ -22,7 +22,7 @@ impl MemphisProducerOptions {
             ..Default::default()
         }
     }
-    
+
     pub fn with_generate_unique_suffix(mut self, generate_unique_suffix: bool) -> Self {
         self.generate_unique_suffix = generate_unique_suffix;
         self

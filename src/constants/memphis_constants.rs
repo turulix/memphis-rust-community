@@ -12,7 +12,7 @@ pub(crate) enum MemphisSpecialStation {
 
     Notifications,
 
-    StationDestruction,
+    StationDestructions,
 }
 
 impl ToString for MemphisSpecialStation {
@@ -30,7 +30,7 @@ impl ToString for MemphisSpecialStation {
 
             MemphisSpecialStation::Notifications => String::from("$memphis_notifications"),
 
-            MemphisSpecialStation::StationDestruction => String::from("$memphis_station_destructions"),
+            MemphisSpecialStation::StationDestructions => String::from("$memphis_station_destructions"),
         }
     }
 }

@@ -31,6 +31,7 @@ pub mod consumer;
 pub mod core;
 pub mod memphis_client;
 pub mod producer;
+pub mod station;
 
 pub(crate) mod constants;
 pub(crate) mod helper;

@@ -1,5 +1,5 @@
-use async_nats::HeaderMap;
 use async_nats::header::{IntoHeaderName, IntoHeaderValue};
+use async_nats::HeaderMap;
 use bytes::Bytes;
 
 #[derive(Debug, Default)]
@@ -32,5 +32,3 @@ impl ComposableMessage {
         self
     }
 }
-
-

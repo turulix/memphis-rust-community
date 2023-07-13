@@ -1,9 +1,9 @@
-use std::fmt::{Debug, Formatter};
 use crate::constants::memphis_constants::MemphisSubjects;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::pm_ack_msg::PmAckMsg;
 use async_nats::jetstream::{AckKind, Message};
 use async_nats::{Error, HeaderMap};
+use std::fmt::{Debug, Formatter};
 use std::string::FromUtf8Error;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,12 +17,7 @@ pub struct MemphisMessage {
 }
 
 impl MemphisMessage {
-    pub fn new(
-        msg: Message,
-        memphis_client: MemphisClient,
-        consumer_group: String,
-        max_ack_time_ms: i32,
-    ) -> Self {
+    pub fn new(msg: Message, memphis_client: MemphisClient, consumer_group: String, max_ack_time_ms: i32) -> Self {
         MemphisMessage {
             msg: Arc::new(msg),
             memphis_client,
@@ -47,10 +42,7 @@ impl MemphisMessage {
                         let msg_to_ack_bytes = bytes::Bytes::from(msg_to_ack_json);
                         self.memphis_client
                             .get_broker_connection()
-                            .publish(
-                                MemphisSubjects::PmResendAckSubj.to_string(),
-                                msg_to_ack_bytes,
-                            )
+                            .publish(MemphisSubjects::PmResendAckSubj.to_string(), msg_to_ack_bytes)
                             .await?;
                     }
                 }

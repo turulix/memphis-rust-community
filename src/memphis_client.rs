@@ -14,6 +14,7 @@ use crate::consumer::MemphisConsumer;
 use crate::consumer::MemphisConsumerOptions;
 use crate::producer::{MemphisProducer, MemphisProducerOptions};
 use crate::request_error::RequestError;
+use crate::station::{MemphisStation, MemphisStationsOptions};
 
 /// # Memphis Client
 ///
@@ -68,33 +69,19 @@ impl MemphisClient {
     ///         "memphis"
     ///     ).await.unwrap();
     /// }
-    pub async fn new(
-        memphis_host: &str,
-        memphis_username: &str,
-        memphis_password: &str,
-    ) -> Result<MemphisClient, ConnectError> {
+    pub async fn new(memphis_host: &str, memphis_username: &str, memphis_password: &str) -> Result<MemphisClient, ConnectError> {
         let uuid = Uuid::new_v4();
         let name = format!("{}::{}", &uuid, memphis_username);
 
         // TODO: Replace 1 with account_id
-        let broker_settings = MemphisClient::create_settings(
-            format!("{}${}", memphis_username, 1).as_str(),
-            memphis_password,
-            name.clone(),
-        );
+        let broker_settings = MemphisClient::create_settings(format!("{}${}", memphis_username, 1).as_str(), memphis_password, name.clone());
 
-        let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await
-        {
+        let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await {
             Ok(c) => c,
             Err(e) => {
                 if e.to_string().contains("authorization violation") {
-                    let broker_settings = MemphisClient::create_settings(
-                        memphis_username,
-                        memphis_password,
-                        name.clone(),
-                    );
-                    let connection =
-                        async_nats::connect_with_options(memphis_host, broker_settings).await;
+                    let broker_settings = MemphisClient::create_settings(memphis_username, memphis_password, name.clone());
+                    let connection = async_nats::connect_with_options(memphis_host, broker_settings).await;
                     match connection {
                         Ok(c) => c,
                         Err(e) => {
@@ -143,29 +130,20 @@ impl MemphisClient {
     ///     // Start consuming messages
     ///     consumer.consume().await.unwrap();
     /// }
-    pub async fn create_consumer(
-        &self,
-        consumer_options: MemphisConsumerOptions,
-    ) -> Result<MemphisConsumer, ConsumerError> {
+    pub async fn create_consumer(&self, consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
         MemphisConsumer::new(self.clone(), consumer_options).await
     }
 
-    pub async fn create_producer(
-        &self,
-        producer_options: MemphisProducerOptions
-    ) -> Result<MemphisProducer, RequestError> {
+    pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
         MemphisProducer::new(self.clone(), producer_options).await
     }
 
-    fn create_settings(
-        memphis_username: &str,
-        memphis_password: &str,
-        name: String,
-    ) -> ConnectOptions {
-        ConnectOptions::with_user_and_password(
-            memphis_username.to_string(),
-            memphis_password.to_string(),
-        )
+    pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
+        MemphisStation::new(self.clone(), station_options).await
+    }
+
+    fn create_settings(memphis_username: &str, memphis_password: &str, name: String) -> ConnectOptions {
+        ConnectOptions::with_user_and_password(memphis_username.to_string(), memphis_password.to_string())
             .flush_interval(Duration::from_millis(100))
             .connection_timeout(Duration::from_secs(5))
             .ping_interval(Duration::from_secs(1))
@@ -182,11 +160,7 @@ impl MemphisClient {
     }
 
     /// Sends a request to a internal/special Memphis Station and handles the errors
-    pub(crate) async fn send_internal_request(
-        &self,
-        request: &impl Serialize,
-        request_type: MemphisSpecialStation,
-    ) -> Result<Message, RequestError> {
+    pub(crate) async fn send_internal_request(&self, request: &impl Serialize, request_type: MemphisSpecialStation) -> Result<Message, RequestError> {
         if !self.is_connected() {
             return Err(RequestError::NotConnected);
         }
@@ -199,9 +173,7 @@ impl MemphisClient {
             .await
             .map_err(|e| RequestError::NatsError(e.into()))?;
 
-        let error_message = std::str::from_utf8(&res.payload)
-            .map_err(|e| RequestError::MemphisError(e.to_string()))?;
-
+        let error_message = std::str::from_utf8(&res.payload).map_err(|e| RequestError::MemphisError(e.to_string()))?;
 
         if !error_message.trim().is_empty() {
             return Err(RequestError::MemphisError(error_message.to_string()));

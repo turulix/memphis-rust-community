@@ -40,10 +40,7 @@ impl MemphisConsumer {
     /// # Arguments
     /// * `memphis_client` - The MemphisClient to use.
     /// * `options` - The MemphisConsumerOptions to use.
-    pub(crate) async fn new(
-        memphis_client: MemphisClient,
-        mut options: MemphisConsumerOptions,
-    ) -> Result<Self, ConsumerError> {
+    pub(crate) async fn new(memphis_client: MemphisClient, mut options: MemphisConsumerOptions) -> Result<Self, ConsumerError> {
         sanitize_name(&mut options.consumer_name, options.generate_unique_suffix);
 
         if options.start_consume_from_sequence <= 0 {
@@ -64,10 +61,7 @@ impl MemphisConsumer {
         };
 
         if let Err(e) = memphis_client
-            .send_internal_request(
-                &create_consumer_request,
-                MemphisSpecialStation::ConsumerCreations,
-            )
+            .send_internal_request(&create_consumer_request, MemphisSpecialStation::ConsumerCreations)
             .await
         {
             error!("Error creating consumer: {}", e.to_string());
@@ -142,17 +136,12 @@ impl MemphisConsumer {
                 let messages = consumer
                     .batch()
                     .max_messages(cloned_options.batch_size)
-                    .expires(Duration::from_millis(
-                        cloned_options.batch_max_time_to_wait_ms,
-                    ))
+                    .expires(Duration::from_millis(cloned_options.batch_max_time_to_wait_ms))
                     .messages()
                     .await;
 
                 if messages.is_err() {
-                    error!(
-                        "Error while fetching messages from JetStream. {:?}",
-                        messages.err()
-                    );
+                    error!("Error while fetching messages from JetStream. {:?}", messages.err());
                     continue;
                 }
 
@@ -180,7 +169,10 @@ impl MemphisConsumer {
             }
         });
 
-        debug!("Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
+        debug!(
+            "Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'",
+            self.options.consumer_name, self.options.consumer_group
+        );
         Ok(())
     }
 
@@ -227,7 +219,10 @@ impl MemphisConsumer {
                 }
             }
         });
-        debug!("Successfully started consuming DLS messages from Memphis with consumer '{}' on group: '{}'", self.options.consumer_name, self.options.consumer_group);
+        debug!(
+            "Successfully started consuming DLS messages from Memphis with consumer '{}' on group: '{}'",
+            self.options.consumer_name, self.options.consumer_group
+        );
         Ok(r)
     }
 
@@ -242,10 +237,7 @@ impl MemphisConsumer {
 
         if let Err(e) = self
             .memphis_client
-            .send_internal_request(
-                &destroy_request,
-                MemphisSpecialStation::ConsumerDestructions,
-            )
+            .send_internal_request(&destroy_request, MemphisSpecialStation::ConsumerDestructions)
             .await
         {
             error!("Error destroying consumer. {}", &e);
@@ -277,29 +269,17 @@ impl MemphisConsumer {
                 {
                     Ok(s) => s,
                     Err(e) => {
-                        send_message(
-                            &cloned_sender,
-                            MemphisEvent::StationUnavailable(Arc::new(e)),
-                        );
-                        error!(
-                            "Station {} is unavailable. (Ping)",
-                            &cloned_options.station_name.clone()
-                        );
+                        send_message(&cloned_sender, MemphisEvent::StationUnavailable(Arc::new(e)));
+                        error!("Station {} is unavailable. (Ping)", &cloned_options.station_name.clone());
                         tokio::time::sleep(Duration::from_secs(30)).await;
                         continue;
                     }
                 };
 
-                match stream
-                    .consumer_info(get_effective_consumer_name(&cloned_options))
-                    .await
-                {
+                match stream.consumer_info(get_effective_consumer_name(&cloned_options)).await {
                     Ok(_) => {}
                     Err(e) => {
-                        send_message(
-                            &cloned_sender,
-                            MemphisEvent::ConsumerUnavailable(Arc::new(e)),
-                        );
+                        send_message(&cloned_sender, MemphisEvent::ConsumerUnavailable(Arc::new(e)));
                         error!(
                             "Consumer '{}' on group '{}' is unavailable. (Ping)",
                             &cloned_options.consumer_name, &cloned_options.consumer_group

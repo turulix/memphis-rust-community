@@ -13,10 +13,7 @@ pub struct MemphisProducer {
 }
 
 impl MemphisProducer {
-    pub async fn new(
-        client: MemphisClient,
-        mut options: MemphisProducerOptions,
-    ) -> Result<Self, RequestError> {
+    pub(crate) async fn new(client: MemphisClient, mut options: MemphisProducerOptions) -> Result<Self, RequestError> {
         sanitize_name(&mut options.producer_name, options.generate_unique_suffix);
 
         let req = CreateProducerRequest {
@@ -27,10 +24,7 @@ impl MemphisProducer {
             username: &client.username,
         };
 
-        if let Err(e) = client
-            .send_internal_request(&req, MemphisSpecialStation::ProducerCreations)
-            .await
-        {
+        if let Err(e) = client.send_internal_request(&req, MemphisSpecialStation::ProducerCreations).await {
             error!("Error creating producer. {}", &e);
             return Err(e);
         }
@@ -46,13 +40,8 @@ impl MemphisProducer {
             return Err(ProducerError::PayloadEmpty);
         }
 
-        message
-            .headers
-            .insert("$memphis_producedBy", self.options.producer_name.as_str());
-        message.headers.insert(
-            "$memphis_connectionId",
-            self.memphis_client.connection_id.as_str(),
-        );
+        message.headers.insert("$memphis_producedBy", self.options.producer_name.as_str());
+        message.headers.insert("$memphis_connectionId", self.memphis_client.connection_id.as_str());
 
         if let Some(msg_id) = message.msg_id {
             message.headers.insert("msg-id", msg_id.as_str());
@@ -69,9 +58,7 @@ impl MemphisProducer {
             .await
         {
             error!("Could not publish message. {}", e);
-            return Err(ProducerError::RequestError(RequestError::NatsError(
-                e.into(),
-            )));
+            return Err(ProducerError::RequestError(RequestError::NatsError(e.into())));
         }
 
         debug!(
