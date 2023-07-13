@@ -32,6 +32,7 @@ pub mod core;
 pub mod memphis_client;
 pub mod producer;
 pub mod station;
+pub mod schemaverse;
 
 pub(crate) mod constants;
 pub(crate) mod helper;

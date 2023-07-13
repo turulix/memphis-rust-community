@@ -8,12 +8,14 @@ use bytes::Bytes;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::constants::memphis_constants::MemphisSpecialStation;
+use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecialStation};
 use crate::consumer::ConsumerError;
 use crate::consumer::MemphisConsumer;
 use crate::consumer::MemphisConsumerOptions;
+use crate::models::request::NotificationRequest;
 use crate::producer::{MemphisProducer, MemphisProducerOptions};
 use crate::request_error::RequestError;
+use crate::schemaverse::schema_store::SchemaStore;
 use crate::station::{MemphisStation, MemphisStationsOptions};
 
 /// # Memphis Client
@@ -22,7 +24,7 @@ use crate::station::{MemphisStation, MemphisStationsOptions};
 ///
 /// ```rust
 /// use memphis_rust_community::memphis_client::MemphisClient;
-/// use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+/// use memphis_rust_community::consumer::MemphisConsumerOptions;
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -48,6 +50,7 @@ pub struct MemphisClient {
     broker_connection: Arc<Client>,
     pub(crate) username: Arc<String>,
     pub(crate) connection_id: Arc<String>,
+    pub(crate) schema_store: Arc<SchemaStore>,
 }
 
 impl MemphisClient {
@@ -99,6 +102,7 @@ impl MemphisClient {
             broker_connection: Arc::new(connection),
             username: Arc::new(name),
             connection_id: Arc::new(uuid.to_string()),
+            schema_store: Arc::new(SchemaStore::new()),
         })
     }
 
@@ -140,6 +144,20 @@ impl MemphisClient {
 
     pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
         MemphisStation::new(self.clone(), station_options).await
+    }
+
+    pub async fn send_notification(&self, notification_type: MemphisNotificationType, title: &str,message: &str, code: &str) -> Result<(), RequestError> {
+        let req = NotificationRequest {
+            title,
+            msg: message,
+            msg_type: &notification_type.to_string(),
+            code,
+        };
+
+
+        self.send_internal_request(&req, MemphisSpecialStation::Notifications).await?;
+
+        Ok(())
     }
 
     fn create_settings(memphis_username: &str, memphis_password: &str, name: String) -> ConnectOptions {

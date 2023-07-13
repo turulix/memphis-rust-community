@@ -1,10 +1,11 @@
 use log::{debug, error, info};
 
-use crate::constants::memphis_constants::MemphisSpecialStation;
+use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecialStation};
 use crate::helper::memphis_util::{get_internal_name, sanitize_name};
 use crate::memphis_client::MemphisClient;
 use crate::models::request::{CreateProducerRequest, DestroyProducerRequest};
 use crate::producer::{ComposableMessage, MemphisProducerOptions, ProducerError};
+use crate::schemaverse::schema::SchemaValidationError;
 use crate::RequestError;
 
 pub struct MemphisProducer {
@@ -38,6 +39,22 @@ impl MemphisProducer {
     pub async fn produce(&self, mut message: ComposableMessage) -> Result<(), ProducerError> {
         if message.payload.is_empty() {
             return Err(ProducerError::PayloadEmpty);
+        }
+
+        if let Err(e) = self.validate_message(&message).await {
+            self.memphis_client
+                .send_notification(
+                    MemphisNotificationType::SchemaValidationFailAlert,
+                    "Schema validation has failed ",
+                    &format!(
+                        "Station {}\nProducer: {}\nError: {}",
+                        &self.options.station_name, &self.options.producer_name, &e
+                    ),
+                    std::str::from_utf8(&message.payload).unwrap_or("no valid utf8 supplied"),
+                )
+                .await?;
+
+            return Err(ProducerError::SchemaValidationError(e));
         }
 
         message.headers.insert("$memphis_producedBy", self.options.producer_name.as_str());
@@ -88,5 +105,13 @@ impl MemphisProducer {
         info!("Destroyed producer {}.", &self.options.producer_name);
 
         Ok(())
+    }
+
+    async fn validate_message(&self, message: &ComposableMessage) -> Result<(), SchemaValidationError> {
+        let Some(schema) = self.memphis_client.schema_store.get_schema(&self.options.station_name).await else {
+            return Ok(());
+        };
+
+        schema.validate(&message.payload)
     }
 }

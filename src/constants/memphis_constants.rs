@@ -132,3 +132,15 @@ impl ToString for MemphisGlobalVariables {
         }
     }
 }
+
+pub enum MemphisNotificationType {
+    SchemaValidationFailAlert
+}
+
+impl ToString for MemphisNotificationType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::SchemaValidationFailAlert => String::from("schema_validation_fail_alert"),
+        }
+    }
+}
