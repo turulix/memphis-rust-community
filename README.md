@@ -13,6 +13,7 @@ This is a work in progress and is not yet ready for production use.
 - [x] Consumers
 - [ ] Producers
 - [ ] Stations
+- [ ] Schemaverse
 
 ## Installation
 
@@ -28,6 +29,7 @@ memphis-rust-community = "0.1.3"
 ```rust
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+
 #[tokio::main]
 async fn main() {
     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
