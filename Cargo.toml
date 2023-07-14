@@ -1,53 +1,5 @@
-[package]
-name = "memphis-rust-community"
-authors = ["turulix", "Conner"]
-homepage = "https://github.com/turulix/memphis-rust-community"
-repository = "https://github.com/turulix/memphis-rust-community"
-documentation = "https://docs.rs/memphis-rust-community"
-description = "A Rust implementation of the Memphis Messaging Protocol"
-readme = "README.md"
-license = "GPL-3.0"
-version = "0.2.0"
-edition = "2021"
-exclude = [
-    "docker-compose.yml"
+[workspace]
+resolver = "2"
+members = [
+    "memphis"
 ]
-keywords = ["memphis", "community", "messaging"]
-categories = ["network-programming", "asynchronous", "messaging"]
-
-[package.metadata."docs.rs"]
-all-features = true
-
-[features]
-default = []
-# default = ["producers", "consumers", "stations", "schemaverse"]
-full = ["producers", "consumers", "stations", "schemaverse", "validator_json", "validator_graphql", "validator_protobuf"]
-
-producers = []
-consumers = []
-stations = []
-
-schemaverse = []
-validator_json = ["schemaverse", "dep:jsonschema"]
-validator_graphql = ["schemaverse"]
-validator_protobuf = ["schemaverse"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-async-nats = "0.29.0"
-rand = "0.8.5"
-serde = "1.0.160"
-serde_json = "1.0.96"
-tokio = { version = "1.28.0", features = ["full"] }
-tokio-util = "0.7.8"
-uuid = { version = "1.3.1", features = ["v4"] }
-bytes = "1.4.0"
-log = "0.4.17"
-env_logger = "0.10.0"
-futures-util = "0.3.28"
-thiserror = "1.0"
-async-trait = "0.1.17"
-hex = { version = "0.4.3", features = ["serde"] }
-
-jsonschema = { version = "0.17", optional = true }
