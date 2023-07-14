@@ -6,8 +6,10 @@ use crate::memphis_client::MemphisClient;
 use crate::models::request::{CreateProducerRequest, DestroyProducerRequest};
 use crate::producer::dls_message::{DlsMessage, DlsMessageProducer};
 use crate::producer::{ComposableMessage, MemphisProducerOptions, ProducerError};
-use crate::schemaverse::schema::SchemaValidationError;
 use crate::RequestError;
+
+#[cfg(feature = "schemaverse")]
+use crate::schemaverse::schema::SchemaValidationError;
 
 pub struct MemphisProducer {
     memphis_client: MemphisClient,
@@ -51,6 +53,7 @@ impl MemphisProducer {
             message.headers.insert(MemphisHeaders::MessageId, msg_id.as_str());
         }
 
+        #[cfg(feature = "schemaverse")]
         self.validate_message(&message).await.map_err(|e| ProducerError::SchemaValidationError(e))?;
 
         if let Err(e) = self
@@ -95,7 +98,10 @@ impl MemphisProducer {
 
         Ok(())
     }
+}
 
+#[cfg(feature = "schemaverse")]
+impl MemphisProducer {
     async fn validate_message(&self, message: &ComposableMessage) -> Result<(), SchemaValidationError> {
         let Some(settings) = self.memphis_client.station_settings.get_settings(&self.options.station_name).await else {
             return Ok(());

@@ -10,10 +10,11 @@ use tokio_util::sync::CancellationToken;
 
 use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
 use crate::consumer::consumer_error::ConsumerError;
+use crate::consumer::get_effective_consumer_name;
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::core::memphis_message::MemphisMessage;
 use crate::core::memphis_message_handler::MemphisEvent;
-use crate::helper::memphis_util::{get_effective_consumer_name, get_internal_name, sanitize_name};
+use crate::helper::memphis_util::{get_internal_name, sanitize_name};
 use crate::memphis_client::MemphisClient;
 use crate::models::request::CreateConsumerRequest;
 use crate::models::request::DestroyConsumerRequest;

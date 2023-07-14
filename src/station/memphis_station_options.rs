@@ -25,7 +25,6 @@ pub enum StorageType {
     Memory,
 }
 
-
 impl MemphisStationsOptions {
     pub fn new(station_name: String) -> Self {
         MemphisStationsOptions {

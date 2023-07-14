@@ -1,7 +1,6 @@
 use async_nats::header::IntoHeaderName;
 use async_nats::HeaderName;
 
-#[allow(dead_code)]
 pub(crate) enum MemphisSpecialStation {
     ProducerCreations,
     ConsumerCreations,
@@ -40,7 +39,6 @@ impl ToString for MemphisSpecialStation {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) enum MemphisHeaders {
     MessageId,
     MemphisProducedBy,
@@ -63,7 +61,6 @@ impl IntoHeaderName for MemphisHeaders {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) enum MemphisSubscriptions {
     DlsPrefix,
 }
@@ -91,55 +88,6 @@ impl ToString for MemphisSubjects {
             Self::MemphisSchemaUpdate => String::from("$memphis_schema_updates_"),
             Self::SdkClientsUpdate => String::from("$memphis_sdk_clients_updates"),
             Self::MemphisSchemaVerseDls => String::from("$memphis_schemaverse_dls"),
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) enum MemphisSchemaTypes {
-    None,
-    Json,
-    GraphQl,
-    ProtoBuf,
-}
-
-impl ToString for MemphisSchemaTypes {
-    fn to_string(&self) -> String {
-        match self {
-            Self::None => String::from(""),
-            Self::Json => String::from("json"),
-            Self::GraphQl => String::from("graphql"),
-            Self::ProtoBuf => String::from("protobuf"),
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) enum MemphisSdkClientUpdateTypes {
-    SendNotification,
-    SchemaVerseToDls,
-    RemoveStation,
-}
-
-impl ToString for MemphisSdkClientUpdateTypes {
-    fn to_string(&self) -> String {
-        match self {
-            Self::SendNotification => String::from("send_notification"),
-            Self::SchemaVerseToDls => String::from("schemaverse_to_dls"),
-            Self::RemoveStation => String::from("remove_station"),
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) enum MemphisGlobalVariables {
-    GlobalAccountName,
-}
-
-impl ToString for MemphisGlobalVariables {
-    fn to_string(&self) -> String {
-        match self {
-            Self::GlobalAccountName => String::from("$memphis"),
         }
     }
 }

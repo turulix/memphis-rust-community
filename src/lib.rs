@@ -27,11 +27,16 @@
 
 pub use request_error::RequestError;
 
-pub mod consumer;
 pub mod core;
 pub mod memphis_client;
+
+#[cfg(feature = "consumers")]
+pub mod consumer;
+#[cfg(feature = "producers")]
 pub mod producer;
+#[cfg(feature = "schemaverse")]
 pub mod schemaverse;
+#[cfg(feature = "stations")]
 pub mod station;
 
 pub(crate) mod constants;

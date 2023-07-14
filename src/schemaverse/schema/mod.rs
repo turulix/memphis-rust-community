@@ -1,9 +1,7 @@
-pub mod json;
-
-use bytes::Bytes;
 use std::fmt::Debug;
 use std::path::Path;
 
+use bytes::Bytes;
 use thiserror::Error;
 
 use crate::RequestError;
@@ -44,3 +42,6 @@ impl<E: ErrorData + 'static> From<E> for SchemaValidationError {
         SchemaValidationError::SchemaInvalid(Box::new(value))
     }
 }
+
+#[cfg(feature = "validator_json")]
+pub mod json;

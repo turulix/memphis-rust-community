@@ -1,12 +1,15 @@
-use crate::schemaverse::schema::SchemaValidator;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
 pub type ArcStationSettings = Arc<StationSettings>;
+
+#[cfg(feature = "schemaverse")]
+use crate::schemaverse::schema::SchemaValidator;
 
 pub struct StationSettings {
     pub schemaverse_dls_enabled: bool,
+
+    #[cfg(feature = "schemaverse")]
     pub schema_validator: Option<Box<dyn SchemaValidator>>,
 }
 

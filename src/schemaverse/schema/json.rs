@@ -1,6 +1,6 @@
+use bytes::Bytes;
 use std::borrow::Cow;
 use std::fmt::Display;
-use bytes::Bytes;
 
 use jsonschema::{Draft, JSONSchema, ValidationError};
 use thiserror::Error;

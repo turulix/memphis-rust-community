@@ -9,13 +9,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecialStation};
-use crate::consumer::ConsumerError;
-use crate::consumer::MemphisConsumer;
-use crate::consumer::MemphisConsumerOptions;
 use crate::models::request::NotificationRequest;
-use crate::producer::{MemphisProducer, MemphisProducerOptions};
 use crate::request_error::RequestError;
-use crate::station::{MemphisStation, MemphisStationsOptions};
 use crate::station_settings::StationSettingsStore;
 
 /// # Memphis Client
@@ -114,38 +109,6 @@ impl MemphisClient {
         }
     }
 
-    /// Creates a consumer for the given station and returns a MemphisConsumer
-    /// You need to call **consume()** on the MemphisConsumer to start consuming messages.
-    /// # Arguments
-    /// * `consumer_options` - [MemphisConsumerOptions](MemphisConsumerOptions)
-    ///
-    /// # Example
-    /// ```rust
-    /// use memphis_rust_community::memphis_client::MemphisClient;
-    /// use memphis_rust_community::consumer::MemphisConsumerOptions;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
-    ///         .with_generate_unique_suffix(true);
-    ///
-    ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
-    ///     // Start consuming messages
-    ///     consumer.consume().await.unwrap();
-    /// }
-    pub async fn create_consumer(&self, consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
-        MemphisConsumer::new(self.clone(), consumer_options).await
-    }
-
-    pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
-        MemphisProducer::new(self.clone(), producer_options).await
-    }
-
-    pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
-        MemphisStation::new(self.clone(), station_options).await
-    }
-
     pub async fn send_notification(&self, notification_type: MemphisNotificationType, title: &str, message: &str, code: &str) -> Result<(), RequestError> {
         let req = NotificationRequest {
             title,
@@ -197,5 +160,61 @@ impl MemphisClient {
         }
 
         Ok(res)
+    }
+}
+
+#[cfg(feature = "consumers")]
+mod consumers {
+    use crate::consumer::{ConsumerError, MemphisConsumer, MemphisConsumerOptions};
+    use crate::memphis_client::MemphisClient;
+
+    impl MemphisClient {
+        /// Creates a consumer for the given station and returns a MemphisConsumer
+        /// You need to call **consume()** on the MemphisConsumer to start consuming messages.
+        /// # Arguments
+        /// * `consumer_options` - [MemphisConsumerOptions](MemphisConsumerOptions)
+        ///
+        /// # Example
+        /// ```rust
+        /// use memphis_rust_community::memphis_client::MemphisClient;
+        /// use memphis_rust_community::consumer::MemphisConsumerOptions;
+        ///
+        /// #[tokio::main]
+        /// async fn main() {
+        ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+        ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
+        ///         .with_generate_unique_suffix(true);
+        ///
+        ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
+        ///     // Start consuming messages
+        ///     consumer.consume().await.unwrap();
+        /// }
+        pub async fn create_consumer(&self, consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
+            MemphisConsumer::new(self.clone(), consumer_options).await
+        }
+    }
+}
+
+#[cfg(feature = "producers")]
+mod producers {
+    use crate::memphis_client::MemphisClient;
+    use crate::producer::{MemphisProducer, MemphisProducerOptions};
+
+    impl MemphisClient {
+        pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
+            MemphisProducer::new(self.clone(), producer_options).await
+        }
+    }
+}
+
+#[cfg(feature = "stations")]
+mod stations {
+    use crate::memphis_client::MemphisClient;
+    use crate::station::{MemphisStation, MemphisStationsOptions};
+
+    impl MemphisClient {
+        pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
+            MemphisStation::new(self.clone(), station_options).await
+        }
     }
 }
