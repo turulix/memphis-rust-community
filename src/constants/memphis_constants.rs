@@ -1,3 +1,6 @@
+use async_nats::header::IntoHeaderName;
+use async_nats::HeaderName;
+
 #[allow(dead_code)]
 pub(crate) enum MemphisSpecialStation {
     ProducerCreations,
@@ -6,31 +9,33 @@ pub(crate) enum MemphisSpecialStation {
 
     ProducerDestructions,
     ConsumerDestructions,
+    StationDestructions,
 
     SchemaAttachments,
     SchemaDetachments,
 
     Notifications,
 
-    StationDestructions,
+    MemphisSchemaverseDls,
 }
 
 impl ToString for MemphisSpecialStation {
     fn to_string(&self) -> String {
         match self {
-            MemphisSpecialStation::ProducerCreations => String::from("$memphis_producer_creations"),
-            MemphisSpecialStation::ConsumerCreations => String::from("$memphis_consumer_creations"),
-            MemphisSpecialStation::StationCreations => String::from("$memphis_station_creations"),
+            Self::ProducerCreations => String::from("$memphis_producer_creations"),
+            Self::ConsumerCreations => String::from("$memphis_consumer_creations"),
+            Self::StationCreations => String::from("$memphis_station_creations"),
 
-            MemphisSpecialStation::ProducerDestructions => String::from("$memphis_producer_destructions"),
-            MemphisSpecialStation::ConsumerDestructions => String::from("$memphis_consumer_destructions"),
+            Self::ProducerDestructions => String::from("$memphis_producer_destructions"),
+            Self::ConsumerDestructions => String::from("$memphis_consumer_destructions"),
+            Self::StationDestructions => String::from("$memphis_station_destructions"),
 
-            MemphisSpecialStation::SchemaAttachments => String::from("$memphis_schema_attachments"),
-            MemphisSpecialStation::SchemaDetachments => String::from("$memphis_schema_detachments"),
+            Self::SchemaAttachments => String::from("$memphis_schema_attachments"),
+            Self::SchemaDetachments => String::from("$memphis_schema_detachments"),
 
-            MemphisSpecialStation::Notifications => String::from("$memphis_notifications"),
+            Self::Notifications => String::from("$memphis_notifications"),
 
-            MemphisSpecialStation::StationDestructions => String::from("$memphis_station_destructions"),
+            Self::MemphisSchemaverseDls => String::from("$memphis_schemaverse_dls"),
         }
     }
 }
@@ -42,13 +47,19 @@ pub(crate) enum MemphisHeaders {
     MemphisConnectionId,
 }
 
-impl ToString for MemphisHeaders {
-    fn to_string(&self) -> String {
+impl MemphisHeaders {
+    pub fn as_str(&self) -> &str {
         match self {
-            MemphisHeaders::MessageId => String::from("msg-id"),
-            MemphisHeaders::MemphisProducedBy => String::from("$memphis_producedBy"),
-            MemphisHeaders::MemphisConnectionId => String::from("$memphis_connectionId"),
+            Self::MessageId => "msg-id",
+            Self::MemphisProducedBy => "$memphis_producedBy",
+            Self::MemphisConnectionId => "$memphis_connectionId",
         }
+    }
+}
+
+impl IntoHeaderName for MemphisHeaders {
+    fn into_header_name(self) -> HeaderName {
+        self.as_str().into_header_name()
     }
 }
 
@@ -76,10 +87,10 @@ pub(crate) enum MemphisSubjects {
 impl ToString for MemphisSubjects {
     fn to_string(&self) -> String {
         match self {
-            MemphisSubjects::PmResendAckSubj => String::from("$memphis_pm_acks"),
-            MemphisSubjects::MemphisSchemaUpdate => String::from("$memphis_schema_updates_"),
-            MemphisSubjects::SdkClientsUpdate => String::from("$memphis_sdk_clients_updates"),
-            MemphisSubjects::MemphisSchemaVerseDls => String::from("$memphis_schemaverse_dls"),
+            Self::PmResendAckSubj => String::from("$memphis_pm_acks"),
+            Self::MemphisSchemaUpdate => String::from("$memphis_schema_updates_"),
+            Self::SdkClientsUpdate => String::from("$memphis_sdk_clients_updates"),
+            Self::MemphisSchemaVerseDls => String::from("$memphis_schemaverse_dls"),
         }
     }
 }
@@ -95,10 +106,10 @@ pub(crate) enum MemphisSchemaTypes {
 impl ToString for MemphisSchemaTypes {
     fn to_string(&self) -> String {
         match self {
-            MemphisSchemaTypes::None => String::from(""),
-            MemphisSchemaTypes::Json => String::from("json"),
-            MemphisSchemaTypes::GraphQl => String::from("graphql"),
-            MemphisSchemaTypes::ProtoBuf => String::from("protobuf"),
+            Self::None => String::from(""),
+            Self::Json => String::from("json"),
+            Self::GraphQl => String::from("graphql"),
+            Self::ProtoBuf => String::from("protobuf"),
         }
     }
 }
@@ -113,9 +124,9 @@ pub(crate) enum MemphisSdkClientUpdateTypes {
 impl ToString for MemphisSdkClientUpdateTypes {
     fn to_string(&self) -> String {
         match self {
-            MemphisSdkClientUpdateTypes::SendNotification => String::from("send_notification"),
-            MemphisSdkClientUpdateTypes::SchemaVerseToDls => String::from("schemaverse_to_dls"),
-            MemphisSdkClientUpdateTypes::RemoveStation => String::from("remove_station"),
+            Self::SendNotification => String::from("send_notification"),
+            Self::SchemaVerseToDls => String::from("schemaverse_to_dls"),
+            Self::RemoveStation => String::from("remove_station"),
         }
     }
 }
@@ -128,13 +139,13 @@ pub(crate) enum MemphisGlobalVariables {
 impl ToString for MemphisGlobalVariables {
     fn to_string(&self) -> String {
         match self {
-            MemphisGlobalVariables::GlobalAccountName => String::from("$memphis"),
+            Self::GlobalAccountName => String::from("$memphis"),
         }
     }
 }
 
 pub enum MemphisNotificationType {
-    SchemaValidationFailAlert
+    SchemaValidationFailAlert,
 }
 
 impl ToString for MemphisNotificationType {

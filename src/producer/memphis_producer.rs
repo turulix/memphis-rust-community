@@ -1,9 +1,10 @@
 use log::{debug, error, info};
 
-use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecialStation};
+use crate::constants::memphis_constants::{MemphisHeaders, MemphisNotificationType, MemphisSpecialStation};
 use crate::helper::memphis_util::{get_internal_name, sanitize_name};
 use crate::memphis_client::MemphisClient;
 use crate::models::request::{CreateProducerRequest, DestroyProducerRequest};
+use crate::producer::dls_message::{DlsMessage, DlsMessageProducer};
 use crate::producer::{ComposableMessage, MemphisProducerOptions, ProducerError};
 use crate::schemaverse::schema::SchemaValidationError;
 use crate::RequestError;
@@ -41,28 +42,16 @@ impl MemphisProducer {
             return Err(ProducerError::PayloadEmpty);
         }
 
-        if let Err(e) = self.validate_message(&message).await {
-            self.memphis_client
-                .send_notification(
-                    MemphisNotificationType::SchemaValidationFailAlert,
-                    "Schema validation has failed ",
-                    &format!(
-                        "Station {}\nProducer: {}\nError: {}",
-                        &self.options.station_name, &self.options.producer_name, &e
-                    ),
-                    std::str::from_utf8(&message.payload).unwrap_or("no valid utf8 supplied"),
-                )
-                .await?;
+        message.headers.insert(MemphisHeaders::MemphisProducedBy, self.options.producer_name.as_str());
+        message
+            .headers
+            .insert(MemphisHeaders::MemphisConnectionId, self.memphis_client.connection_id.as_str());
 
-            return Err(ProducerError::SchemaValidationError(e));
+        if let Some(msg_id) = &message.msg_id {
+            message.headers.insert(MemphisHeaders::MessageId, msg_id.as_str());
         }
 
-        message.headers.insert("$memphis_producedBy", self.options.producer_name.as_str());
-        message.headers.insert("$memphis_connectionId", self.memphis_client.connection_id.as_str());
-
-        if let Some(msg_id) = message.msg_id {
-            message.headers.insert("msg-id", msg_id.as_str());
-        }
+        self.validate_message(&message).await.map_err(|e| ProducerError::SchemaValidationError(e))?;
 
         if let Err(e) = self
             .memphis_client
@@ -108,10 +97,56 @@ impl MemphisProducer {
     }
 
     async fn validate_message(&self, message: &ComposableMessage) -> Result<(), SchemaValidationError> {
-        let Some(schema) = self.memphis_client.schema_store.get_schema(&self.options.station_name).await else {
+        let Some(settings) = self.memphis_client.station_settings.get_settings(&self.options.station_name).await else {
             return Ok(());
         };
 
-        schema.validate(&message.payload)
+        let Some(schema_validator) = &settings.schema_validator else {
+            return Ok(());
+        };
+
+        if let Err(e) = schema_validator.validate(&message.payload) {
+            self.send_notification(&message, &e).await?;
+
+            if settings.schemaverse_dls_enabled {
+                self.send_message_to_dls(message, &e).await?;
+            }
+
+            return Err(e);
+        }
+
+        Ok(())
+    }
+
+    async fn send_notification(&self, message: &&ComposableMessage, e: &SchemaValidationError) -> Result<(), SchemaValidationError> {
+        self.memphis_client
+            .send_notification(
+                MemphisNotificationType::SchemaValidationFailAlert,
+                "Schema validation has failed ",
+                &format!(
+                    "Station {}\nProducer: {}\nError: {}",
+                    &self.options.station_name, &self.options.producer_name, &e
+                ),
+                std::str::from_utf8(&message.payload).unwrap_or("no valid utf8 supplied"),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn send_message_to_dls(&self, message: &ComposableMessage, e: &SchemaValidationError) -> Result<(), SchemaValidationError> {
+        let req = DlsMessage {
+            station_name: &self.options.station_name,
+            producer: DlsMessageProducer {
+                name: &self.options.producer_name,
+                connection_id: &self.memphis_client.connection_id,
+            },
+            message,
+            validation_error: &e.to_string(),
+        };
+
+        self.memphis_client
+            .send_internal_request(&req, MemphisSpecialStation::MemphisSchemaverseDls)
+            .await?;
+        Ok(())
     }
 }

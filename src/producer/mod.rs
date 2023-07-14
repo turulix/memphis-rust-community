@@ -1,4 +1,5 @@
 mod composable_message;
+mod dls_message;
 mod memphis_producer;
 mod memphis_producer_options;
 mod producer_error;

@@ -15,8 +15,8 @@ use crate::consumer::MemphisConsumerOptions;
 use crate::models::request::NotificationRequest;
 use crate::producer::{MemphisProducer, MemphisProducerOptions};
 use crate::request_error::RequestError;
-use crate::schemaverse::schema_store::SchemaStore;
 use crate::station::{MemphisStation, MemphisStationsOptions};
+use crate::station_settings::StationSettingsStore;
 
 /// # Memphis Client
 ///
@@ -50,7 +50,7 @@ pub struct MemphisClient {
     broker_connection: Arc<Client>,
     pub(crate) username: Arc<String>,
     pub(crate) connection_id: Arc<String>,
-    pub(crate) schema_store: Arc<SchemaStore>,
+    pub(crate) station_settings: Arc<StationSettingsStore>,
 }
 
 impl MemphisClient {
@@ -102,7 +102,7 @@ impl MemphisClient {
             broker_connection: Arc::new(connection),
             username: Arc::new(name),
             connection_id: Arc::new(uuid.to_string()),
-            schema_store: Arc::new(SchemaStore::new()),
+            station_settings: Arc::new(StationSettingsStore::new()),
         })
     }
 
@@ -146,14 +146,13 @@ impl MemphisClient {
         MemphisStation::new(self.clone(), station_options).await
     }
 
-    pub async fn send_notification(&self, notification_type: MemphisNotificationType, title: &str,message: &str, code: &str) -> Result<(), RequestError> {
+    pub async fn send_notification(&self, notification_type: MemphisNotificationType, title: &str, message: &str, code: &str) -> Result<(), RequestError> {
         let req = NotificationRequest {
             title,
             msg: message,
             msg_type: &notification_type.to_string(),
             code,
         };
-
 
         self.send_internal_request(&req, MemphisSpecialStation::Notifications).await?;
 

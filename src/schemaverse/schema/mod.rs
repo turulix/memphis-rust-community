@@ -1,8 +1,8 @@
 pub mod json;
 
+use bytes::Bytes;
 use std::fmt::Debug;
 use std::path::Path;
-use bytes::Bytes;
 
 use thiserror::Error;
 
@@ -12,15 +12,20 @@ use crate::RequestError;
 pub trait SchemaValidator: Send + Sync {
     fn validate(&self, message: &Bytes) -> Result<(), SchemaValidationError>;
 
-    fn from_bytes(bytes: &Bytes) -> Result<Self, SchemaValidationError> where Self: Sized;
+    fn from_bytes(bytes: &Bytes) -> Result<Self, SchemaValidationError>
+    where
+        Self: Sized;
 
-    async fn from_file(path: &Path) -> Result<Self, SchemaValidationError> where Self: Sized {
+    async fn from_file(path: &Path) -> Result<Self, SchemaValidationError>
+    where
+        Self: Sized,
+    {
         let bytes = tokio::fs::read(path).await.map_err(|e| SchemaValidationError::ReadFileError(e))?;
         Self::from_bytes(&bytes.into())
     }
 }
 
-pub trait ErrorData: Debug + Send {}
+pub trait ErrorData: Debug + Send + Sync {}
 
 #[derive(Debug, Error)]
 pub enum SchemaValidationError {
@@ -34,7 +39,7 @@ pub enum SchemaValidationError {
     SchemaInvalid(Box<dyn ErrorData>),
 }
 
-impl<E: ErrorData + 'static> From<E> for SchemaValidationError{
+impl<E: ErrorData + 'static> From<E> for SchemaValidationError {
     fn from(value: E) -> Self {
         SchemaValidationError::SchemaInvalid(Box::new(value))
     }
