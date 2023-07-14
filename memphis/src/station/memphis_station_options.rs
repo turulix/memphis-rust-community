@@ -12,15 +12,17 @@ pub struct MemphisStationsOptions {
     pub tiered_storage_enabled: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum RetentionType {
+    #[default]
     MessageAgeSec,
     Messages,
     Bytes,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum StorageType {
+    #[default]
     Disk,
     Memory,
 }
@@ -90,18 +92,6 @@ impl Default for MemphisStationsOptions {
             send_schema_failed_msg_to_dls: true,
             tiered_storage_enabled: false,
         }
-    }
-}
-
-impl Default for RetentionType {
-    fn default() -> Self {
-        RetentionType::MessageAgeSec
-    }
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Disk
     }
 }
 

@@ -54,7 +54,7 @@ impl MemphisProducer {
         }
 
         #[cfg(feature = "schemaverse")]
-        self.validate_message(&message).await.map_err(|e| ProducerError::SchemaValidationError(e))?;
+        self.validate_message(&message).await.map_err(ProducerError::SchemaValidationError)?;
 
         if let Err(e) = self
             .memphis_client

@@ -17,7 +17,6 @@ impl ToString for SchemaType {
             SchemaType::GraphQL => "graphql".to_string(),
             #[cfg(feature = "validator_protobuf")]
             SchemaType::Protobuf => "protobuf".to_string(),
-            _ => panic!("unknown SchemaType"),
         }
     }
 }

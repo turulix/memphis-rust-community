@@ -57,7 +57,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          cargo test --all
+          cargo test --all --all-features
 
   check_format:
     name: check (format)
@@ -125,4 +125,4 @@ jobs:
           rustup component add clippy
 
       - name: Check lint
-        run: cargo doc
+        run: cargo doc --all-features
