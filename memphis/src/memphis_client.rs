@@ -199,6 +199,7 @@ mod consumers {
 mod producers {
     use crate::memphis_client::MemphisClient;
     use crate::producer::{MemphisProducer, MemphisProducerOptions};
+    use crate::RequestError;
 
     impl MemphisClient {
         pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
@@ -211,6 +212,7 @@ mod producers {
 mod stations {
     use crate::memphis_client::MemphisClient;
     use crate::station::{MemphisStation, MemphisStationsOptions};
+    use crate::RequestError;
 
     impl MemphisClient {
         pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {

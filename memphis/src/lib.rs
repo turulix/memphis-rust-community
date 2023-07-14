@@ -27,7 +27,6 @@
 
 pub use request_error::RequestError;
 
-pub mod core;
 pub mod memphis_client;
 
 #[cfg(feature = "consumers")]

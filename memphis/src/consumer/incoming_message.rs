@@ -1,12 +1,14 @@
-use crate::constants::memphis_constants::MemphisSubjects;
-use crate::memphis_client::MemphisClient;
-use crate::models::request::pm_ack_msg::PmAckMsg;
-use async_nats::jetstream::{AckKind, Message};
-use async_nats::{Error, HeaderMap};
 use std::fmt::{Debug, Formatter};
 use std::string::FromUtf8Error;
 use std::sync::Arc;
 use std::time::Duration;
+
+use async_nats::jetstream::{AckKind, Message};
+use async_nats::{Error, HeaderMap};
+
+use crate::constants::memphis_constants::MemphisSubjects;
+use crate::memphis_client::MemphisClient;
+use crate::models::request::pm_ack_msg::PmAckMsg;
 
 #[derive(Clone)]
 pub struct MemphisMessage {
