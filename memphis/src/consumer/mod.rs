@@ -12,6 +12,7 @@ mod incoming_message;
 mod memphis_consumer;
 mod memphis_consumer_options;
 
+/// Get the effective consumer name. If the consumer group is empty, the consumer name is used. Otherwise, the consumer group is used.
 fn get_effective_consumer_name(options: &MemphisConsumerOptions) -> String {
     if options.consumer_group.is_empty() {
         get_internal_name(&options.consumer_name)

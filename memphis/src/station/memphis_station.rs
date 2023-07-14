@@ -56,4 +56,58 @@ impl MemphisStation {
 
         Ok(())
     }
+
+    pub fn get_name(&self) -> &str {
+        &self.options.station_name
+    }
+}
+
+#[cfg(feature = "consumers")]
+mod consumers {
+    use crate::consumer::{ConsumerError, MemphisConsumer, MemphisConsumerOptions};
+    use crate::station::{MemphisStation, MemphisStationsOptions};
+
+    impl MemphisStation {
+        /// Creates a consumer for the given station and returns a MemphisConsumer
+        /// You need to call **consume()** on the MemphisConsumer to start consuming messages.
+        /// # Arguments
+        /// * `consumer_options` - [MemphisConsumerOptions](MemphisConsumerOptions)
+        ///
+        /// # Example
+        /// ```rust
+        /// use memphis_rust_community::memphis_client::MemphisClient;
+        /// use memphis_rust_community::consumer::MemphisConsumerOptions;
+        ///
+        /// #[tokio::main]
+        /// async fn main() {
+        ///     use memphis_rust_community::station::MemphisStationsOptions;
+        ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+        ///
+        ///     let station_options = MemphisStationsOptions::new("my-station");
+        ///     let station = client.create_station(station_options).await.unwrap();
+        ///
+        ///     let consumer_options = MemphisConsumerOptions::new("my-consumer").with_generate_unique_suffix(true);
+        ///     let mut consumer = station.create_consumer(consumer_options).await.unwrap();
+        ///
+        ///     let msg_receiver = consumer.consume().await.unwrap();
+        /// }
+        pub async fn create_consumer(&self, mut consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
+            consumer_options.station_name = self.options.station_name.clone();
+            MemphisConsumer::new(self.memphis_client.clone(), consumer_options).await
+        }
+    }
+}
+
+#[cfg(feature = "producers")]
+mod producer {
+    use crate::producer::{MemphisProducer, MemphisProducerOptions};
+    use crate::station::MemphisStation;
+    use crate::RequestError;
+
+    impl MemphisStation {
+        pub async fn create_producer(&self, mut producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
+            producer_options.station_name = self.options.station_name.clone();
+            MemphisProducer::new(self.memphis_client.clone(), producer_options).await
+        }
+    }
 }

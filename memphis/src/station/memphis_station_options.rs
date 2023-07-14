@@ -23,14 +23,14 @@ pub enum RetentionType {
 #[derive(Debug, Default)]
 pub enum StorageType {
     #[default]
-    Disk,
+    File,
     Memory,
 }
 
 impl MemphisStationsOptions {
-    pub fn new(station_name: String) -> Self {
+    pub fn new(station_name: &str) -> Self {
         MemphisStationsOptions {
-            station_name,
+            station_name: station_name.to_string(),
             ..Default::default()
         }
     }
@@ -109,7 +109,7 @@ impl ToString for RetentionType {
 impl ToString for StorageType {
     fn to_string(&self) -> String {
         match self {
-            StorageType::Disk => "disk",
+            StorageType::File => "file",
             StorageType::Memory => "memory",
         }
         .to_string()

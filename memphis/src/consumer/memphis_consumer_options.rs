@@ -6,7 +6,7 @@
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let options = MemphisConsumerOptions::new("station_name", "consumer_name")
+///     let options = MemphisConsumerOptions::new("station_name")
 ///         .with_consumer_group("consumer_group")
 ///         .with_generate_unique_suffix(true)
 ///         .with_pull_interval_ms(1000)
@@ -14,7 +14,7 @@
 /// }
 #[derive(Debug, Clone)]
 pub struct MemphisConsumerOptions {
-    pub station_name: String,
+    pub(crate) station_name: String,
     pub consumer_name: String,
     pub consumer_group: String,
     pub pull_interval_ms: i32,
@@ -46,17 +46,11 @@ impl Default for MemphisConsumerOptions {
 }
 
 impl MemphisConsumerOptions {
-    pub fn new(station_name: &str, consumer_name: &str) -> Self {
+    pub fn new(consumer_name: &str) -> Self {
         MemphisConsumerOptions {
-            station_name: station_name.to_string(),
             consumer_name: consumer_name.to_string(),
             ..Default::default()
         }
-    }
-
-    pub fn with_station_name(mut self, station_name: String) -> Self {
-        self.station_name = station_name;
-        self
     }
 
     pub fn with_consumer_name(mut self, consumer_name: String) -> Self {
