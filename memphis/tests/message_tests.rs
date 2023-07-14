@@ -1,11 +1,11 @@
-use crate::helper::{connect_to_memphis, create_random_consumer, create_random_producer, create_random_station};
 use log::debug;
 use memphis_rust_community::consumer::MemphisEvent;
 use memphis_rust_community::producer::ComposableMessage;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+mod common;
 
-mod helper;
+use common::*;
 
 #[tokio::test]
 async fn send_receive_message() {

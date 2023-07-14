@@ -153,12 +153,3 @@ impl MemphisClient {
             .name(name)
     }
 }
-
-#[cfg(feature = "producers")]
-mod producers {
-    use crate::memphis_client::MemphisClient;
-    use crate::producer::{MemphisProducer, MemphisProducerOptions};
-    use crate::RequestError;
-
-    impl MemphisClient {}
-}

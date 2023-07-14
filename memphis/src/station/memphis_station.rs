@@ -65,7 +65,7 @@ impl MemphisStation {
 #[cfg(feature = "consumers")]
 mod consumers {
     use crate::consumer::{ConsumerError, MemphisConsumer, MemphisConsumerOptions};
-    use crate::station::{MemphisStation, MemphisStationsOptions};
+    use crate::station::MemphisStation;
 
     impl MemphisStation {
         /// Creates a consumer for the given station and returns a MemphisConsumer

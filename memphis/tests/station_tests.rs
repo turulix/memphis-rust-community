@@ -1,7 +1,6 @@
-use crate::helper::connect_to_memphis;
 use memphis_rust_community::station::{MemphisStationsOptions, StorageType};
-
-mod helper;
+mod common;
+use common::*;
 
 #[tokio::test]
 async fn test_station_creation() {
