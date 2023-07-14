@@ -76,15 +76,17 @@ impl MemphisMessage {
                     Ok(_) => Ok(()),
                     Err(_) => Err(()),
                 };
-            }
-            if let Some(_cg_name) = headers.get("$memphis_pm_cg_name") {
+            } else if let Some(_cg_name) = headers.get("$memphis_pm_cg_name") {
                 return match self.msg.ack_with(AckKind::Nak(Some(delay))).await {
                     Ok(_) => Ok(()),
                     Err(_) => Err(()),
                 };
             }
         }
-        Err(())
+        match self.msg.ack_with(AckKind::Nak(Some(delay))).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use log::info;
 use memphis_rust_community::station::{MemphisStationsOptions, StorageType};
 mod common;
 use common::*;
@@ -11,6 +12,7 @@ async fn test_station_creation() {
     let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::File);
     let station = client.create_station(station_options).await;
     assert!(station.is_ok(), "Creating Station should be possible.");
+    dbg!(station.unwrap().get_name());
 
     let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::File);
     let station = client.create_station(station_options).await;

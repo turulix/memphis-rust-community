@@ -52,3 +52,13 @@ pub async fn create_random_producer(station: &MemphisStation) -> MemphisProducer
 
     producer.unwrap()
 }
+
+#[allow(dead_code)]
+pub async fn create_random_setup() -> (MemphisClient, MemphisStation, MemphisConsumer, MemphisProducer) {
+    let client = connect_to_memphis().await;
+    let station = create_random_station(&client).await;
+    let consumer = create_random_consumer(&station).await;
+    let producer = create_random_producer(&station).await;
+
+    (client, station, consumer, producer)
+}
