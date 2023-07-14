@@ -35,7 +35,7 @@ pub mod consumer;
 pub mod producer;
 #[cfg(feature = "schemaverse")]
 pub mod schemaverse;
-#[cfg(feature = "stations")]
+
 pub mod station;
 
 pub(crate) mod constants;

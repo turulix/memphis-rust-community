@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecialStation};
 use crate::models::request::NotificationRequest;
 use crate::request_error::RequestError;
+use crate::station::{MemphisStation, MemphisStationsOptions};
 use crate::station_settings::StationSettingsStore;
 
 /// # Memphis Client
@@ -122,13 +123,8 @@ impl MemphisClient {
         Ok(())
     }
 
-    fn create_settings(memphis_username: &str, memphis_password: &str, name: String) -> ConnectOptions {
-        ConnectOptions::with_user_and_password(memphis_username.to_string(), memphis_password.to_string())
-            .flush_interval(Duration::from_millis(100))
-            .connection_timeout(Duration::from_secs(5))
-            .ping_interval(Duration::from_secs(1))
-            .request_timeout(Some(Duration::from_secs(5)))
-            .name(name)
+    pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
+        MemphisStation::new(self.clone(), station_options).await
     }
 
     pub(crate) fn get_jetstream_context(&self) -> &Context {
@@ -160,6 +156,15 @@ impl MemphisClient {
         }
 
         Ok(res)
+    }
+
+    fn create_settings(memphis_username: &str, memphis_password: &str, name: String) -> ConnectOptions {
+        ConnectOptions::with_user_and_password(memphis_username.to_string(), memphis_password.to_string())
+            .flush_interval(Duration::from_millis(100))
+            .connection_timeout(Duration::from_secs(5))
+            .ping_interval(Duration::from_secs(1))
+            .request_timeout(Some(Duration::from_secs(5)))
+            .name(name)
     }
 }
 
@@ -204,19 +209,6 @@ mod producers {
     impl MemphisClient {
         pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
             MemphisProducer::new(self.clone(), producer_options).await
-        }
-    }
-}
-
-#[cfg(feature = "stations")]
-mod stations {
-    use crate::memphis_client::MemphisClient;
-    use crate::station::{MemphisStation, MemphisStationsOptions};
-    use crate::RequestError;
-
-    impl MemphisClient {
-        pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
-            MemphisStation::new(self.clone(), station_options).await
         }
     }
 }

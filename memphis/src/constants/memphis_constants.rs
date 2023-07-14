@@ -16,6 +16,8 @@ pub(crate) enum MemphisSpecialStation {
     Notifications,
 
     MemphisSchemaverseDls,
+
+    PmAcks,
 }
 
 impl ToString for MemphisSpecialStation {
@@ -35,6 +37,8 @@ impl ToString for MemphisSpecialStation {
             Self::Notifications => String::from("$memphis_notifications"),
 
             Self::MemphisSchemaverseDls => String::from("$memphis_schemaverse_dls"),
+
+            Self::PmAcks => String::from("$memphis_pm_acks"),
         }
     }
 }
@@ -63,31 +67,14 @@ impl IntoHeaderName for MemphisHeaders {
 
 pub(crate) enum MemphisSubscriptions {
     DlsPrefix,
+    SchemaUpdatesPrefix,
 }
 
 impl ToString for MemphisSubscriptions {
     fn to_string(&self) -> String {
         match self {
-            MemphisSubscriptions::DlsPrefix => String::from("$memphis_dls_"),
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) enum MemphisSubjects {
-    PmResendAckSubj,
-    MemphisSchemaUpdate,
-    SdkClientsUpdate,
-    MemphisSchemaVerseDls,
-}
-
-impl ToString for MemphisSubjects {
-    fn to_string(&self) -> String {
-        match self {
-            Self::PmResendAckSubj => String::from("$memphis_pm_acks"),
-            Self::MemphisSchemaUpdate => String::from("$memphis_schema_updates_"),
-            Self::SdkClientsUpdate => String::from("$memphis_sdk_clients_updates"),
-            Self::MemphisSchemaVerseDls => String::from("$memphis_schemaverse_dls"),
+            Self::DlsPrefix => String::from("$memphis_dls_"),
+            Self::SchemaUpdatesPrefix => String::from("$memphis_schema_updates_"),
         }
     }
 }

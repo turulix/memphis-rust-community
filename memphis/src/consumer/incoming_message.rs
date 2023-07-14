@@ -4,11 +4,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_nats::jetstream::{AckKind, Message};
-use async_nats::{Error, HeaderMap};
+use async_nats::HeaderMap;
 
-use crate::constants::memphis_constants::MemphisSubjects;
+use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::pm_ack_msg::PmAckMsg;
+use crate::RequestError;
 
 #[derive(Clone)]
 pub struct MemphisMessage {
@@ -19,7 +20,7 @@ pub struct MemphisMessage {
 }
 
 impl MemphisMessage {
-    pub fn new(msg: Message, memphis_client: MemphisClient, consumer_group: String, max_ack_time_ms: i32) -> Self {
+    pub(crate) fn new(msg: Message, memphis_client: MemphisClient, consumer_group: String, max_ack_time_ms: i32) -> Self {
         MemphisMessage {
             msg: Arc::new(msg),
             memphis_client,
@@ -29,26 +30,22 @@ impl MemphisMessage {
     }
 
     /// Acknowledges the message. Causes the message to be marked as processed and removed from the queue.
-    pub async fn ack(&self) -> Result<(), Error> {
+    pub async fn ack(&self) -> Result<(), RequestError> {
         let res = self.msg.ack().await;
         return match res {
             Ok(_) => Ok(()),
             Err(e) => {
                 if let Some(header) = &self.msg.headers {
                     if let Some(memphis_id) = header.get("$memphis_pm_id") {
-                        let msg_to_ack_model = PmAckMsg {
+                        let req = PmAckMsg {
                             id: memphis_id.to_string(),
                             consumer_group_name: self.consumer_group.clone(),
                         };
-                        let msg_to_ack_json = serde_json::to_string(&msg_to_ack_model)?;
-                        let msg_to_ack_bytes = bytes::Bytes::from(msg_to_ack_json);
-                        self.memphis_client
-                            .get_broker_connection()
-                            .publish(MemphisSubjects::PmResendAckSubj.to_string(), msg_to_ack_bytes)
-                            .await?;
+
+                        self.memphis_client.send_internal_request(&req, MemphisSpecialStation::PmAcks).await?;
                     }
                 }
-                Err(e)
+                Err(e.into())
             }
         };
     }

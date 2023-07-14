@@ -20,12 +20,11 @@ all-features = true
 
 [features]
 default = []
-# default = ["producers", "consumers", "stations", "schemaverse"]
-full = ["producers", "consumers", "stations", "schemaverse", "validator_json", "validator_graphql", "validator_protobuf"]
+# default = ["producers", "consumers", "schemaverse"]
+full = ["producers", "consumers", "schemaverse", "validator_json", "validator_graphql", "validator_protobuf"]
 
 producers = []
 consumers = []
-stations = []
 
 schemaverse = []
 validator_json = ["schemaverse", "dep:jsonschema"]
@@ -44,7 +43,6 @@ tokio-util = "0.7.8"
 uuid = { version = "1.3.1", features = ["v4"] }
 bytes = "1.4.0"
 log = "0.4.17"
-env_logger = "0.10.0"
 futures-util = "0.3.28"
 thiserror = "1.0"
 async-trait = "0.1.17"

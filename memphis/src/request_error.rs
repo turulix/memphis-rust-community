@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum RequestError {
     #[error("NatsError: {0}")]
-    NatsError(async_nats::Error),
+    NatsError(#[from] async_nats::Error),
 
     #[error("MemphisError: {0}")]
     MemphisError(String),
