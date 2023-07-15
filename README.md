@@ -60,7 +60,6 @@ async fn main() {
 - :white_check_mark: Message ID
 - :white_check_mark: Destroy a producer
 - :white_check_mark: Consume
-- :x: Context to message handler
 - :white_check_mark: Ack a message
 - :x: Fetch
 - :white_check_mark: Message delay
