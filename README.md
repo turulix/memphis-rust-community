@@ -49,34 +49,36 @@ async fn main() {
 
 ## Supported Features
 
-- :white_check_mark: Connection
-- :white_check_mark: Disconnection
-- :white_check_mark: Create a station
-- :white_check_mark: Destroy a station
-- :white_check_mark: Retention
-- :white_check_mark: Retention values
-- :white_check_mark: Storage types
+- ✅ Connection
+- ✅ Disconnection
+- ✅ Create a station
+- ✅ Destroy a station
+- ✅ Retention
+- ✅ Retention values
+- ✅ Storage types
 
+---
 
-- :warning: Schemaverse (WIP. Disabled by default via feature flag)
-- :x: Create a new schema
-- :x: Enforce a schema Protobuf
-- :white_check_mark: Enforce a schema Json
-- :x: Enforce a schema GraphQL
-- :x: Detach a schema
+- ⚠️ Schemaverse (WIP. Disabled by default via feature flag)
+- ❌ Create a new schema
+- ❌ Enforce a schema Protobuf
+- ✅ Enforce a schema Json
+- ❌ Enforce a schema GraphQL
+- ❌ Detach a schema
 
+---
 
-- :white_check_mark: Produce
-- :white_check_mark: Add headers
-- :white_check_mark: Async produce
-- :white_check_mark: Message ID
-- :white_check_mark: Destroy a producer
-- :white_check_mark: Consume
-- :white_check_mark: Ack a message
-- :x: Fetch
-- :white_check_mark: Message delay
-- :white_check_mark: Get Headers
-- :white_check_mark: Get message sequence number
-- :white_check_mark: Destroying a Consumer
-- :white_check_mark: Check if broker is connected
-- :x: Consumer prefetch
+- ✅ Produce
+- ✅ Add headers
+- ✅ Async produce
+- ✅ Message ID
+- ✅ Destroy a producer
+- ✅ Consume
+- ✅ Ack a message
+- ❌ Fetch
+- ✅ Message delay
+- ✅ Get Headers
+- ✅ Get message sequence number
+- ✅ Destroying a Consumer
+- ✅ Check if broker is connected
+- ❌ Consumer prefetch
