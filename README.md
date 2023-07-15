@@ -9,12 +9,6 @@
 This is an unofficial client for Memphis, written in Rust.
 This is a work in progress and is not yet ready for production use.
 
-## Features
-- [x] Consumers
-- [ ] Producers
-- [ ] Stations
-- [ ] Schemaverse
-
 ## Installation
 
 Add the following to your `Cargo.toml` file:
@@ -47,3 +41,31 @@ async fn main() {
 }
 ```
 
+## Supported Features
+- :white_check_mark: Connection
+- :white_check_mark: Disconnection
+- :white_check_mark: Create a station
+- :white_check_mark: Destroy a station
+- :white_check_mark: Retention
+- :white_check_mark: Retention values
+- :white_check_mark: Storage types
+- :x: Create a new schema
+- :x: Enforce a schema Protobuf
+- :x: Enforce a schema Json
+- :x: Enforce a schema GraphQL
+- :x: Detach a schema
+- :white_check_mark: Produce
+- :white_check_mark: Add headers
+- :white_check_mark: Async produce
+- :white_check_mark: Message ID
+- :white_check_mark: Destroy a producer
+- :white_check_mark: Consume
+- :x: Context to message handler
+- :white_check_mark: Ack a message
+- :x: Fetch
+- :white_check_mark: Message delay
+- :white_check_mark: Get Headers
+- :white_check_mark: Get message sequence number
+- :white_check_mark: Destroying a Consumer
+- :white_check_mark: Check if broker is connected
+- :x: Consumer prefetch
