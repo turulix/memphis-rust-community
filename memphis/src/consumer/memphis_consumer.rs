@@ -14,14 +14,14 @@ use crate::consumer::event::MemphisEvent;
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::consumer::{get_effective_consumer_name, MemphisMessage};
 use crate::helper::memphis_util::{get_internal_name, sanitize_name};
-use crate::memphis_client::MemphisClient;
 use crate::models::request::CreateConsumerRequest;
 use crate::models::request::DestroyConsumerRequest;
+use crate::station::MemphisStation;
 
 /// The MemphisConsumer is used to consume messages from a Memphis Station.
 /// See [MemphisClient::create_consumer] for more information.
 pub struct MemphisConsumer {
-    memphis_client: MemphisClient,
+    station: MemphisStation,
     options: MemphisConsumerOptions,
     cancellation_token: CancellationToken,
     message_sender: Option<UnboundedSender<MemphisEvent>>,
@@ -33,9 +33,9 @@ impl MemphisConsumer {
     /// See [MemphisClient::create_consumer] for more information.
     ///
     /// # Arguments
-    /// * `memphis_client` - The MemphisClient to use.
+    /// * `station` - The MemphisStation to use.
     /// * `options` - The MemphisConsumerOptions to use.
-    pub(crate) async fn new(memphis_client: MemphisClient, mut options: MemphisConsumerOptions) -> Result<Self, ConsumerError> {
+    pub(crate) async fn new(station: MemphisStation, mut options: MemphisConsumerOptions) -> Result<Self, ConsumerError> {
         sanitize_name(&mut options.consumer_name, options.generate_unique_suffix);
 
         if options.start_consume_from_sequence <= 0 {
@@ -45,17 +45,18 @@ impl MemphisConsumer {
         let create_consumer_request = CreateConsumerRequest {
             consumer_name: &options.consumer_name,
             station_name: &options.station_name,
-            connection_id: &memphis_client.connection_id.to_string(),
+            connection_id: &station.memphis_client.connection_id.to_string(),
             consumer_type: "application",
             consumer_group: &options.consumer_group,
             max_ack_time_ms: options.max_ack_time_ms,
             max_msg_count_for_delivery: options.max_msg_deliveries,
             start_consume_from_sequence: options.start_consume_from_sequence,
             last_messages: options.last_messages,
-            username: &memphis_client.username,
+            username: &station.memphis_client.username,
         };
 
-        if let Err(e) = memphis_client
+        if let Err(e) = station
+            .memphis_client
             .send_internal_request(&create_consumer_request, MemphisSpecialStation::ConsumerCreations)
             .await
         {
@@ -66,7 +67,7 @@ impl MemphisConsumer {
         info!("Consumer '{}' created successfully", &options.consumer_name);
 
         let consumer = Self {
-            memphis_client,
+            station,
             options,
             cancellation_token: CancellationToken::new(),
             message_sender: None,
@@ -117,7 +118,7 @@ impl MemphisConsumer {
     /// ```
     pub async fn consume(&mut self) -> Result<UnboundedReceiver<MemphisEvent>, Error> {
         let cloned_token = self.cancellation_token.clone();
-        let cloned_client = self.memphis_client.clone();
+        let cloned_client = self.station.memphis_client.clone();
         let cloned_options = self.options.clone();
 
         let (sender, receiver) = unbounded_channel::<MemphisEvent>();
@@ -207,6 +208,7 @@ impl MemphisConsumer {
         );
 
         let mut dls_sub = self
+            .station
             .memphis_client
             .get_broker_connection()
             .queue_subscribe(subject, get_effective_consumer_name(&self.options))
@@ -239,11 +241,12 @@ impl MemphisConsumer {
         let destroy_request = DestroyConsumerRequest {
             consumer_name: &self.options.consumer_name,
             station_name: &self.options.station_name,
-            connection_id: &self.memphis_client.connection_id,
-            username: &self.memphis_client.username,
+            connection_id: &self.station.memphis_client.connection_id,
+            username: &self.station.memphis_client.username,
         };
 
         if let Err(e) = self
+            .station
             .memphis_client
             .send_internal_request(&destroy_request, MemphisSpecialStation::ConsumerDestructions)
             .await
@@ -262,7 +265,7 @@ impl MemphisConsumer {
     fn ping_consumer(&self) {
         let cloned_token = self.cancellation_token.clone();
         let cloned_options = self.options.clone();
-        let cloned_client = self.memphis_client.clone();
+        let cloned_client = self.station.memphis_client.clone();
         let cloned_sender = self.message_sender.clone();
 
         tokio::spawn(async move {

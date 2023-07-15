@@ -1,14 +1,22 @@
+use std::sync::Arc;
+
 use log::{error, info};
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::{CreateStationRequest, DestroyStationRequest, DlsConfiguration};
+#[cfg(feature = "schemaverse")]
+use crate::schemaverse::schema::SchemaValidator;
 use crate::station::memphis_station_options::MemphisStationsOptions;
 use crate::RequestError;
 
+#[derive(Clone)]
 pub struct MemphisStation {
-    memphis_client: MemphisClient,
-    options: MemphisStationsOptions,
+    pub(crate) memphis_client: MemphisClient,
+    pub(crate) options: Arc<MemphisStationsOptions>,
+
+    #[cfg(feature = "schemaverse")]
+    pub(crate) schema: Option<Arc<dyn SchemaValidator>>,
 }
 
 impl MemphisStation {
@@ -38,7 +46,9 @@ impl MemphisStation {
 
         Ok(Self {
             memphis_client: client,
-            options,
+            options: Arc::new(options),
+            #[cfg(feature = "schemaverse")]
+            schema: None,
         })
     }
 
@@ -93,7 +103,7 @@ mod consumers {
         /// }
         pub async fn create_consumer(&self, mut consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
             consumer_options.station_name = self.options.station_name.clone();
-            MemphisConsumer::new(self.memphis_client.clone(), consumer_options).await
+            MemphisConsumer::new(self.clone(), consumer_options).await
         }
     }
 }
@@ -105,9 +115,8 @@ mod producer {
     use crate::RequestError;
 
     impl MemphisStation {
-        pub async fn create_producer(&self, mut producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
-            producer_options.station_name = self.options.station_name.clone();
-            MemphisProducer::new(self.memphis_client.clone(), producer_options).await
+        pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
+            MemphisProducer::new(self.clone(), producer_options).await
         }
     }
 }
