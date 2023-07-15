@@ -19,7 +19,7 @@ use crate::models::request::DestroyConsumerRequest;
 use crate::station::MemphisStation;
 
 /// The MemphisConsumer is used to consume messages from a Memphis Station.
-/// See [MemphisClient::create_consumer] for more information.
+/// See [MemphisStation::create_consumer] for more information.
 pub struct MemphisConsumer {
     station: MemphisStation,
     options: MemphisConsumerOptions,
@@ -30,7 +30,7 @@ pub struct MemphisConsumer {
 impl MemphisConsumer {
     /// Creates a new MemphisConsumer.
     /// This will also start pinging the consumer, to ensure its availability.
-    /// See [MemphisClient::create_consumer] for more information.
+    /// See [MemphisStation::create_consumer] for more information.
     ///
     /// # Arguments
     /// * `station` - The MemphisStation to use.
@@ -196,7 +196,7 @@ impl MemphisConsumer {
     /// This is to ensure that messages are not duplicated.
     ///
     /// # Returns
-    /// A [Receiver] that will receive the DLS messages.
+    /// A Receiver that will receive the DLS messages.
     pub async fn consume_dls(&self) -> Result<UnboundedReceiver<Arc<Message>>, Error> {
         //TODO: Remove Arc once async_nats is updated to >=0.30.0 (https://github.com/nats-io/nats.rs/pull/975)
         let (s, r) = unbounded_channel::<Arc<Message>>();
