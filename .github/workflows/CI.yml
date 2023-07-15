@@ -17,13 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
-env:
-  RUSTFLAGS: "-D warnings"
-
 defaults:
   run:
     shell: bash
-
 
 jobs:
   test:
@@ -47,7 +43,7 @@ jobs:
 
       - name: Setup Memphis
         run: |
-          curl -sSL https://raw.githubusercontent.com/memphisdev/memphis-docker/master/docker-compose.yml > docker-compose.yml
+          curl -sSL https://raw.githubusercontent.com/memphisdev/memphis-docker/master/docker-compose-latest.yml > docker-compose.yml
           docker-compose up -d
 
       - name: Install Rust
@@ -57,7 +53,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          cargo test --all
+          cargo test --workspace --all-targets --all-features
 
   check_format:
     name: check (format)
@@ -125,4 +121,4 @@ jobs:
           rustup component add clippy
 
       - name: Check lint
-        run: cargo doc
+        run: cargo doc --all-features

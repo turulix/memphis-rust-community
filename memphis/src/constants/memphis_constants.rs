@@ -10,7 +10,9 @@ pub(crate) enum MemphisSpecialStation {
     ConsumerDestructions,
     StationDestructions,
 
+    #[allow(dead_code)]
     SchemaAttachments,
+    #[allow(dead_code)]
     SchemaDetachments,
 
     Notifications,
@@ -67,6 +69,7 @@ impl IntoHeaderName for MemphisHeaders {
 
 pub(crate) enum MemphisSubscriptions {
     DlsPrefix,
+    #[allow(dead_code)]
     SchemaUpdatesPrefix,
 }
 

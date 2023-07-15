@@ -12,23 +12,25 @@ pub struct MemphisStationsOptions {
     pub tiered_storage_enabled: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum RetentionType {
+    #[default]
     MessageAgeSec,
     Messages,
     Bytes,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum StorageType {
-    Disk,
+    #[default]
+    File,
     Memory,
 }
 
 impl MemphisStationsOptions {
-    pub fn new(station_name: String) -> Self {
+    pub fn new(station_name: &str) -> Self {
         MemphisStationsOptions {
-            station_name,
+            station_name: station_name.to_string(),
             ..Default::default()
         }
     }
@@ -93,18 +95,6 @@ impl Default for MemphisStationsOptions {
     }
 }
 
-impl Default for RetentionType {
-    fn default() -> Self {
-        RetentionType::MessageAgeSec
-    }
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Disk
-    }
-}
-
 impl ToString for RetentionType {
     fn to_string(&self) -> String {
         match self {
@@ -119,7 +109,7 @@ impl ToString for RetentionType {
 impl ToString for StorageType {
     fn to_string(&self) -> String {
         match self {
-            StorageType::Disk => "disk",
+            StorageType::File => "file",
             StorageType::Memory => "memory",
         }
         .to_string()

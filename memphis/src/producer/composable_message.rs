@@ -1,7 +1,7 @@
 use async_nats::header::{IntoHeaderName, IntoHeaderValue};
 use async_nats::HeaderMap;
 use bytes::Bytes;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 
 #[derive(Debug, Default, Serialize)]
 pub struct ComposableMessage {

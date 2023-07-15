@@ -1,6 +1,5 @@
 use bytes::Bytes;
 use std::borrow::Cow;
-use std::fmt::Display;
 
 use jsonschema::{Draft, JSONSchema, ValidationError};
 use thiserror::Error;
@@ -24,7 +23,7 @@ impl JsonSchemaValidator {
 
 impl SchemaValidator for JsonSchemaValidator {
     fn validate(&self, message: &Bytes) -> Result<(), SchemaValidationError> {
-        let deserialized = serde_json::from_slice(message).map_err(|e| JsonSchemaError::from(e))?;
+        let deserialized = serde_json::from_slice(message).map_err(JsonSchemaError::from)?;
 
         if let Err(mut e) = self.schema.validate(&deserialized) {
             let Some(error) = e.next() else {
@@ -38,7 +37,7 @@ impl SchemaValidator for JsonSchemaValidator {
     }
 
     fn from_bytes(bytes: &Bytes) -> Result<Self, SchemaValidationError> {
-        let deserialized = serde_json::from_slice(bytes).map_err(|e| JsonSchemaError::from(e))?;
+        let deserialized = serde_json::from_slice(bytes).map_err(JsonSchemaError::from)?;
 
         Ok(Self::new(deserialized)?)
     }
@@ -49,7 +48,7 @@ fn validation_error_to_owned(e: ValidationError) -> ValidationError<'static> {
         instance: Cow::Owned(e.instance.into_owned()),
         kind: e.kind,
         instance_path: e.instance_path.to_owned(),
-        schema_path: e.schema_path.to_owned(),
+        schema_path: e.schema_path,
     }
 }
 

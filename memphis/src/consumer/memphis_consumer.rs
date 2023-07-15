@@ -4,8 +4,8 @@ use std::time::Duration;
 use async_nats::jetstream::consumer::PullConsumer;
 use async_nats::{Error, Message};
 use futures_util::StreamExt;
-use log::{debug, error, info, trace};
-use tokio::sync::broadcast::{channel, Receiver, Sender};
+use log::{debug, error, info, trace, warn};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio_util::sync::CancellationToken;
 
 use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
@@ -24,12 +24,7 @@ pub struct MemphisConsumer {
     memphis_client: MemphisClient,
     options: MemphisConsumerOptions,
     cancellation_token: CancellationToken,
-
-    /// The receiver for the MemphisEvents.
-    /// This is used to communicate with the MemphisConsumer.
-    /// The MemphisConsumer will send events to this receiver.
-    pub message_receiver: Receiver<MemphisEvent>,
-    message_sender: Sender<MemphisEvent>,
+    message_sender: Option<UnboundedSender<MemphisEvent>>,
 }
 
 impl MemphisConsumer {
@@ -70,14 +65,11 @@ impl MemphisConsumer {
 
         info!("Consumer '{}' created successfully", &options.consumer_name);
 
-        let (tx, rx) = channel(100);
-
         let consumer = Self {
             memphis_client,
             options,
             cancellation_token: CancellationToken::new(),
-            message_sender: tx,
-            message_receiver: rx,
+            message_sender: None,
         };
 
         consumer.ping_consumer();
@@ -97,29 +89,39 @@ impl MemphisConsumer {
     /// ```rust
     /// use memphis_rust_community::memphis_client::MemphisClient;
     /// use memphis_rust_community::consumer::MemphisConsumerOptions;
+    /// use memphis_rust_community::station::MemphisStationsOptions;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-    ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
-    ///         .with_generate_unique_suffix(true);
-    ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
     ///
-    ///     consumer.consume().await.unwrap();
-    ///     tokio::spawn(async move {
-    ///         loop{
-    ///             let msg = consumer.message_receiver.recv().await;
-    ///             // Do something with the message
-    ///             break;
-    ///         }
-    ///     });
+    ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+    ///
+    ///     let station_options = MemphisStationsOptions::new("test_station");
+    ///     let station = client.create_station(station_options).await.unwrap();
+    ///
+    ///     let consumer_options = MemphisConsumerOptions::new("test_consumer")
+    ///         .with_generate_unique_suffix(true);
+    ///     let mut consumer = station.create_consumer(consumer_options).await.unwrap();
+    ///
+    ///     let mut message_receiver = consumer.consume().await.unwrap();
+    ///
+    ///      tokio::spawn(async move {
+    ///          loop{
+    ///             let msg = message_receiver.recv().await;
+    ///              // Do something with the message
+    ///              break;
+    ///          }
+    ///      });
+    ///
     /// }
     /// ```
-    pub async fn consume(&self) -> Result<(), Error> {
+    pub async fn consume(&mut self) -> Result<UnboundedReceiver<MemphisEvent>, Error> {
         let cloned_token = self.cancellation_token.clone();
         let cloned_client = self.memphis_client.clone();
         let cloned_options = self.options.clone();
-        let cloned_sender = self.message_sender.clone();
+
+        let (sender, receiver) = unbounded_channel::<MemphisEvent>();
+        self.message_sender = Some(sender.clone());
 
         // Memphis will create a stream with the name of the station.
         // On this Stream it will create a consumer with the name of the consumer Group.
@@ -156,7 +158,10 @@ impl MemphisConsumer {
                     trace!(
                         "Message received from Memphis. (Subject: {}, Sequence: {})",
                         msg.subject,
-                        msg.info().expect("NONE").stream_sequence
+                        match msg.info() {
+                            Ok(info) => info.stream_sequence,
+                            Err(_e) => 0,
+                        }
                     );
                     let memphis_message = MemphisMessage::new(
                         msg,
@@ -164,7 +169,10 @@ impl MemphisConsumer {
                         cloned_options.consumer_group.clone(),
                         cloned_options.max_ack_time_ms,
                     );
-                    let _res = cloned_sender.send(MemphisEvent::MessageReceived(memphis_message));
+                    let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
+                    if res.is_err() {
+                        error!("Error while sending message to the receiver. {:?}", res.err());
+                    }
                 }
             }
         });
@@ -173,7 +181,7 @@ impl MemphisConsumer {
             "Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'",
             self.options.consumer_name, self.options.consumer_group
         );
-        Ok(())
+        Ok(receiver)
     }
 
     /// # Starts consuming DLS messages from Memphis.
@@ -188,9 +196,9 @@ impl MemphisConsumer {
     ///
     /// # Returns
     /// A [Receiver] that will receive the DLS messages.
-    pub async fn consume_dls(&self) -> Result<Receiver<Arc<Message>>, Error> {
+    pub async fn consume_dls(&self) -> Result<UnboundedReceiver<Arc<Message>>, Error> {
         //TODO: Remove Arc once async_nats is updated to >=0.30.0 (https://github.com/nats-io/nats.rs/pull/975)
-        let (s, r) = channel::<Arc<Message>>(100);
+        let (s, r) = unbounded_channel::<Arc<Message>>();
         let subject = format!(
             "{}{}_{}",
             MemphisSubscriptions::DlsPrefix.to_string(),
@@ -258,9 +266,17 @@ impl MemphisConsumer {
         let cloned_sender = self.message_sender.clone();
 
         tokio::spawn(async move {
-            fn send_message(sender: &Sender<MemphisEvent>, event: MemphisEvent) {
-                let _res = sender.send(event);
+            fn send_message(sender: &Option<UnboundedSender<MemphisEvent>>, event: MemphisEvent, consumer_name: &str) {
+                match sender {
+                    None => {
+                        warn!("Consumer {} tried to send event, without the Sender being initialised", consumer_name);
+                    }
+                    Some(s) => {
+                        let _res = s.send(event);
+                    }
+                }
             }
+            let name = get_effective_consumer_name(&cloned_options);
             while !cloned_token.is_cancelled() {
                 let stream = match cloned_client
                     .get_jetstream_context()
@@ -269,7 +285,7 @@ impl MemphisConsumer {
                 {
                     Ok(s) => s,
                     Err(e) => {
-                        send_message(&cloned_sender, MemphisEvent::StationUnavailable(Arc::new(e)));
+                        send_message(&cloned_sender, MemphisEvent::StationUnavailable(Arc::new(e)), name.as_str());
                         error!("Station {} is unavailable. (Ping)", &cloned_options.station_name.clone());
                         tokio::time::sleep(Duration::from_secs(30)).await;
                         continue;
@@ -279,7 +295,7 @@ impl MemphisConsumer {
                 match stream.consumer_info(get_effective_consumer_name(&cloned_options)).await {
                     Ok(_) => {}
                     Err(e) => {
-                        send_message(&cloned_sender, MemphisEvent::ConsumerUnavailable(Arc::new(e)));
+                        send_message(&cloned_sender, MemphisEvent::ConsumerUnavailable(Arc::new(e)), name.as_str());
                         error!(
                             "Consumer '{}' on group '{}' is unavailable. (Ping)",
                             &cloned_options.consumer_name, &cloned_options.consumer_group

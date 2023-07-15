@@ -23,10 +23,12 @@ impl StationSettingsStore {
         Default::default()
     }
 
+    #[allow(dead_code)]
     pub async fn get_settings(&self, station_name: &str) -> Option<ArcStationSettings> {
         self.settings.read().await.get(station_name).cloned()
     }
 
+    #[allow(dead_code)]
     pub async fn set_settings(&self, station_name: impl ToString, settings: StationSettings) {
         self.settings.write().await.insert(station_name.to_string(), Arc::new(settings));
     }

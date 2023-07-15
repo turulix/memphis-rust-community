@@ -20,24 +20,10 @@ use crate::station_settings::StationSettingsStore;
 ///
 /// ```rust
 /// use memphis_rust_community::memphis_client::MemphisClient;
-/// use memphis_rust_community::consumer::MemphisConsumerOptions;
 ///
 /// #[tokio::main]
 /// async fn main() {
 ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
-///         .with_generate_unique_suffix(true);
-///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
-///
-///     // Start consuming messages
-///     consumer.consume().await.unwrap();
-///     tokio::spawn(async move {
-///         loop{
-///             let msg = consumer.message_receiver.recv().await;
-///             // Do something with the message
-///             break;
-///         }
-///     });
 /// }
 /// ```
 #[derive(Clone)]
@@ -70,16 +56,16 @@ impl MemphisClient {
     /// }
     pub async fn new(memphis_host: &str, memphis_username: &str, memphis_password: &str) -> Result<MemphisClient, ConnectError> {
         let uuid = Uuid::new_v4();
-        let name = format!("{}::{}", &uuid, memphis_username);
+        let connection_name = format!("{}::{}", &uuid, memphis_username);
 
         // TODO: Replace 1 with account_id
-        let broker_settings = MemphisClient::create_settings(format!("{}${}", memphis_username, 1).as_str(), memphis_password, name.clone());
+        let broker_settings = MemphisClient::create_settings(format!("{}${}", memphis_username, 1).as_str(), memphis_password, connection_name.clone());
 
         let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await {
             Ok(c) => c,
             Err(e) => {
                 if e.to_string().contains("authorization violation") {
-                    let broker_settings = MemphisClient::create_settings(memphis_username, memphis_password, name.clone());
+                    let broker_settings = MemphisClient::create_settings(memphis_username, memphis_password, connection_name);
                     let connection = async_nats::connect_with_options(memphis_host, broker_settings).await;
                     match connection {
                         Ok(c) => c,
@@ -96,7 +82,7 @@ impl MemphisClient {
         Ok(MemphisClient {
             jetstream_context: Arc::new(jetstream::new(connection.clone())),
             broker_connection: Arc::new(connection),
-            username: Arc::new(name),
+            username: Arc::new(memphis_username.to_string()),
             connection_id: Arc::new(uuid.to_string()),
             station_settings: Arc::new(StationSettingsStore::new()),
         })
@@ -165,50 +151,5 @@ impl MemphisClient {
             .ping_interval(Duration::from_secs(1))
             .request_timeout(Some(Duration::from_secs(5)))
             .name(name)
-    }
-}
-
-#[cfg(feature = "consumers")]
-mod consumers {
-    use crate::consumer::{ConsumerError, MemphisConsumer, MemphisConsumerOptions};
-    use crate::memphis_client::MemphisClient;
-
-    impl MemphisClient {
-        /// Creates a consumer for the given station and returns a MemphisConsumer
-        /// You need to call **consume()** on the MemphisConsumer to start consuming messages.
-        /// # Arguments
-        /// * `consumer_options` - [MemphisConsumerOptions](MemphisConsumerOptions)
-        ///
-        /// # Example
-        /// ```rust
-        /// use memphis_rust_community::memphis_client::MemphisClient;
-        /// use memphis_rust_community::consumer::MemphisConsumerOptions;
-        ///
-        /// #[tokio::main]
-        /// async fn main() {
-        ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-        ///     let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer")
-        ///         .with_generate_unique_suffix(true);
-        ///
-        ///     let mut consumer = client.create_consumer(consumer_options).await.unwrap();
-        ///     // Start consuming messages
-        ///     consumer.consume().await.unwrap();
-        /// }
-        pub async fn create_consumer(&self, consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
-            MemphisConsumer::new(self.clone(), consumer_options).await
-        }
-    }
-}
-
-#[cfg(feature = "producers")]
-mod producers {
-    use crate::memphis_client::MemphisClient;
-    use crate::producer::{MemphisProducer, MemphisProducerOptions};
-    use crate::RequestError;
-
-    impl MemphisClient {
-        pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
-            MemphisProducer::new(self.clone(), producer_options).await
-        }
     }
 }
