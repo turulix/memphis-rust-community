@@ -56,14 +56,18 @@ async fn main() {
 - ✅ Retention
 - ✅ Retention values
 - ✅ Storage types
+
 ---
+
 - ⚠️ Schemaverse (WIP. Disabled by default via feature flag)
 - ❌ Create a new schema
 - ❌ Enforce a schema Protobuf
 - ✅ Enforce a schema Json
 - ❌ Enforce a schema GraphQL
 - ❌ Detach a schema
+
 ---
+
 - ✅ Produce
 - ✅ Add headers
 - ✅ Async produce
