@@ -2,12 +2,13 @@ use memphis_rust_community::consumer::{MemphisConsumer, MemphisConsumerOptions};
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::producer::{MemphisProducer, MemphisProducerOptions};
 use memphis_rust_community::station::{MemphisStation, MemphisStationsOptions, StorageType};
+use tokio_test::assert_ok;
 
 #[allow(dead_code)]
 pub async fn connect_to_memphis() -> MemphisClient {
     let client = MemphisClient::new("localhost:6666", "root", "memphis").await;
 
-    assert!(client.is_ok(), "Connecting to Memphis should be possible.");
+    assert_ok!(&client, "Connecting to Memphis should be possible.");
 
     client.unwrap()
 }
@@ -21,7 +22,7 @@ pub async fn create_random_station(client: &MemphisClient) -> MemphisStation {
 
     let station = client.create_station(station_options).await;
 
-    assert!(station.is_ok(), "Creating Station should be possible.");
+    assert_ok!(&station, "Creating Station should be possible.");
 
     station.unwrap()
 }
@@ -36,7 +37,7 @@ pub async fn create_random_consumer(station: &MemphisStation) -> MemphisConsumer
 
     let consumer = station.create_consumer(consumer_options).await;
 
-    assert!(consumer.is_ok(), "Creating Consumer should be possible.");
+    assert_ok!(&consumer, "Creating Consumer should be possible.");
 
     consumer.unwrap()
 }
@@ -49,7 +50,7 @@ pub async fn create_random_producer(station: &MemphisStation) -> MemphisProducer
 
     let producer = station.create_producer(producer_options).await;
 
-    assert!(producer.is_ok(), "Creating Producer should be possible.");
+    assert_ok!(&producer, "Creating Producer should be possible.");
 
     producer.unwrap()
 }
