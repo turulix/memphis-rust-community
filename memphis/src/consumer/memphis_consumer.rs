@@ -5,7 +5,7 @@ use async_nats::jetstream::consumer::PullConsumer;
 use async_nats::{Error, Message};
 use futures_util::StreamExt;
 use log::{debug, error, info, trace, warn};
-use tokio::sync::broadcast::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio_util::sync::CancellationToken;
 
 use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
@@ -24,7 +24,7 @@ pub struct MemphisConsumer {
     memphis_client: MemphisClient,
     options: MemphisConsumerOptions,
     cancellation_token: CancellationToken,
-    message_sender: Option<Sender<MemphisEvent>>,
+    message_sender: Option<UnboundedSender<MemphisEvent>>,
 }
 
 impl MemphisConsumer {
@@ -115,12 +115,12 @@ impl MemphisConsumer {
     ///
     /// }
     /// ```
-    pub async fn consume(&mut self) -> Result<Receiver<MemphisEvent>, Error> {
+    pub async fn consume(&mut self) -> Result<UnboundedReceiver<MemphisEvent>, Error> {
         let cloned_token = self.cancellation_token.clone();
         let cloned_client = self.memphis_client.clone();
         let cloned_options = self.options.clone();
 
-        let (sender, receiver) = channel::<MemphisEvent>(100);
+        let (sender, receiver) = unbounded_channel::<MemphisEvent>();
         self.message_sender = Some(sender.clone());
 
         // Memphis will create a stream with the name of the station.
@@ -158,7 +158,10 @@ impl MemphisConsumer {
                     trace!(
                         "Message received from Memphis. (Subject: {}, Sequence: {})",
                         msg.subject,
-                        msg.info().expect("NONE").stream_sequence
+                        match msg.info() {
+                            Ok(info) => info.stream_sequence,
+                            Err(_e) => 0,
+                        }
                     );
                     let memphis_message = MemphisMessage::new(
                         msg,
@@ -166,7 +169,10 @@ impl MemphisConsumer {
                         cloned_options.consumer_group.clone(),
                         cloned_options.max_ack_time_ms,
                     );
-                    let _res = sender.send(MemphisEvent::MessageReceived(memphis_message));
+                    let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
+                    if res.is_err() {
+                        error!("Error while sending message to the receiver. {:?}", res.err());
+                    }
                 }
             }
         });
@@ -190,9 +196,9 @@ impl MemphisConsumer {
     ///
     /// # Returns
     /// A [Receiver] that will receive the DLS messages.
-    pub async fn consume_dls(&self) -> Result<Receiver<Arc<Message>>, Error> {
+    pub async fn consume_dls(&self) -> Result<UnboundedReceiver<Arc<Message>>, Error> {
         //TODO: Remove Arc once async_nats is updated to >=0.30.0 (https://github.com/nats-io/nats.rs/pull/975)
-        let (s, r) = channel::<Arc<Message>>(100);
+        let (s, r) = unbounded_channel::<Arc<Message>>();
         let subject = format!(
             "{}{}_{}",
             MemphisSubscriptions::DlsPrefix.to_string(),
@@ -260,7 +266,7 @@ impl MemphisConsumer {
         let cloned_sender = self.message_sender.clone();
 
         tokio::spawn(async move {
-            fn send_message(sender: &Option<Sender<MemphisEvent>>, event: MemphisEvent, consumer_name: &str) {
+            fn send_message(sender: &Option<UnboundedSender<MemphisEvent>>, event: MemphisEvent, consumer_name: &str) {
                 match sender {
                     None => {
                         warn!("Consumer {} tried to send event, without the Sender being initialised", consumer_name);

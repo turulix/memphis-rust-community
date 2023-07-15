@@ -15,6 +15,7 @@ pub async fn connect_to_memphis() -> MemphisClient {
 #[allow(dead_code)]
 pub async fn create_random_station(client: &MemphisClient) -> MemphisStation {
     let random_station_name = uuid::Uuid::new_v4().to_string();
+    eprintln!("random_station_name: {}", random_station_name);
 
     let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::Memory);
 
