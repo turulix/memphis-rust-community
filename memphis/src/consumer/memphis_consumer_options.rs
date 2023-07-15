@@ -14,7 +14,6 @@
 /// }
 #[derive(Debug, Clone)]
 pub struct MemphisConsumerOptions {
-    pub(crate) station_name: String,
     pub consumer_name: String,
     pub consumer_group: String,
     pub pull_interval_ms: i32,
@@ -30,7 +29,6 @@ pub struct MemphisConsumerOptions {
 impl Default for MemphisConsumerOptions {
     fn default() -> Self {
         MemphisConsumerOptions {
-            station_name: String::from("Default_Station_Name"),
             consumer_name: String::from("Default_Consumer_Name"),
             consumer_group: String::from(""),
             pull_interval_ms: 1_000,

@@ -44,7 +44,7 @@ impl MemphisConsumer {
 
         let create_consumer_request = CreateConsumerRequest {
             consumer_name: &options.consumer_name,
-            station_name: &options.station_name,
+            station_name: &station.options.station_name,
             connection_id: &station.memphis_client.connection_id.to_string(),
             consumer_type: "application",
             consumer_group: &options.consumer_group,
@@ -129,7 +129,7 @@ impl MemphisConsumer {
         // If no consumer group is provided, the consumer name will be used.
         let consumer: PullConsumer = cloned_client
             .get_jetstream_context()
-            .get_stream(&get_effective_stream_name(&self.options))
+            .get_stream(&self.get_effective_stream_name())
             .await?
             .get_consumer(&get_effective_consumer_name(&self.options))
             .await?;
@@ -203,7 +203,7 @@ impl MemphisConsumer {
         let subject = format!(
             "{}{}_{}",
             MemphisSubscriptions::DlsPrefix.to_string(),
-            get_effective_stream_name(&self.options),
+            self.get_effective_stream_name(),
             get_effective_consumer_name(&self.options)
         );
 
@@ -240,7 +240,7 @@ impl MemphisConsumer {
     pub async fn destroy(self) -> Result<(), ConsumerError> {
         let destroy_request = DestroyConsumerRequest {
             consumer_name: &self.options.consumer_name,
-            station_name: &self.options.station_name,
+            station_name: &self.station.options.station_name,
             connection_id: &self.station.memphis_client.connection_id,
             username: &self.station.memphis_client.username,
         };
@@ -268,6 +268,8 @@ impl MemphisConsumer {
         let cloned_client = self.station.memphis_client.clone();
         let cloned_sender = self.message_sender.clone();
 
+        let consumer_name = self.get_effective_stream_name();
+        let options = self.station.options.clone();
         tokio::spawn(async move {
             fn send_message(sender: &Option<UnboundedSender<MemphisEvent>>, event: MemphisEvent, consumer_name: &str) {
                 match sender {
@@ -281,15 +283,11 @@ impl MemphisConsumer {
             }
             let name = get_effective_consumer_name(&cloned_options);
             while !cloned_token.is_cancelled() {
-                let stream = match cloned_client
-                    .get_jetstream_context()
-                    .get_stream(get_effective_stream_name(&cloned_options))
-                    .await
-                {
+                let stream = match cloned_client.get_jetstream_context().get_stream(&consumer_name).await {
                     Ok(s) => s,
                     Err(e) => {
                         send_message(&cloned_sender, MemphisEvent::StationUnavailable(Arc::new(e)), name.as_str());
-                        error!("Station {} is unavailable. (Ping)", &cloned_options.station_name.clone());
+                        error!("Station {} is unavailable. (Ping)", &options.station_name);
                         tokio::time::sleep(Duration::from_secs(30)).await;
                         continue;
                     }
@@ -317,8 +315,7 @@ impl MemphisConsumer {
             }
         });
     }
-}
-
-fn get_effective_stream_name(options: &MemphisConsumerOptions) -> String {
-    get_internal_name(&options.station_name)
+    fn get_effective_stream_name(&self) -> String {
+        get_internal_name(&self.station.options.station_name)
+    }
 }

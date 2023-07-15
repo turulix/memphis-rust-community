@@ -101,8 +101,7 @@ mod consumers {
         ///
         ///     let msg_receiver = consumer.consume().await.unwrap();
         /// }
-        pub async fn create_consumer(&self, mut consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
-            consumer_options.station_name = self.options.station_name.clone();
+        pub async fn create_consumer(&self, consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
             MemphisConsumer::new(self.clone(), consumer_options).await
         }
     }

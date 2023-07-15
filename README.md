@@ -15,25 +15,31 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-memphis-rust-community = "0.1.3"
+memphis-rust-community = "0.2.0"
 ```
 
 ## Usage
 
 ```rust
 use memphis_rust_community::memphis_client::MemphisClient;
-use memphis_rust_community::consumer::memphis_consumer_options::MemphisConsumerOptions;
+use memphis_rust_community::consumer::MemphisConsumerOptions;
+use memphis_rust_community::station::MemphisStationsOptions;
 
 #[tokio::main]
 async fn main() {
     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
-    let consumer_options = MemphisConsumerOptions::new("my-station", "my-consumer");
-    let mut consumer = client.create_consumer(consumer_options).await.unwrap();
-    
-    consumer.consume().await.unwrap();
+
+    let station_options = MemphisStationsOptions::new("my-station");
+    let station = client.create_station(station_options).await.unwrap();
+
+    let consumer_options = MemphisConsumerOptions::new("my-consumer")
+        .with_generate_unique_suffix(true);
+    let mut consumer = station.create_consumer(consumer_options).await.unwrap();
+
+    let mut message_receiver = consumer.consume().await.unwrap();
     tokio::spawn(async move {
-        loop{
-            let msg = consumer.message_receiver.recv().await;
+        loop {
+            let msg = message_receiver.recv().await;
             // Do something with the message
             break;
         }
@@ -42,6 +48,7 @@ async fn main() {
 ```
 
 ## Supported Features
+
 - :white_check_mark: Connection
 - :white_check_mark: Disconnection
 - :white_check_mark: Create a station
@@ -49,11 +56,16 @@ async fn main() {
 - :white_check_mark: Retention
 - :white_check_mark: Retention values
 - :white_check_mark: Storage types
+
+
+- :warning: Schemaverse (WIP. Disabled by default via feature flag)
 - :x: Create a new schema
 - :x: Enforce a schema Protobuf
-- :x: Enforce a schema Json
+- :white_check_mark: Enforce a schema Json
 - :x: Enforce a schema GraphQL
 - :x: Detach a schema
+
+
 - :white_check_mark: Produce
 - :white_check_mark: Add headers
 - :white_check_mark: Async produce
