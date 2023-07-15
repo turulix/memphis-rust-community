@@ -144,12 +144,12 @@ impl MemphisClient {
         Ok(res)
     }
 
-    fn create_settings(memphis_username: &str, memphis_password: &str, name: String) -> ConnectOptions {
+    fn create_settings(memphis_username: &str, memphis_password: &str, connection_name: String) -> ConnectOptions {
         ConnectOptions::with_user_and_password(memphis_username.to_string(), memphis_password.to_string())
             .flush_interval(Duration::from_millis(100))
             .connection_timeout(Duration::from_secs(5))
             .ping_interval(Duration::from_secs(1))
             .request_timeout(Some(Duration::from_secs(5)))
-            .name(name)
+            .name(connection_name)
     }
 }
