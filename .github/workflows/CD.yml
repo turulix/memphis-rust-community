@@ -36,4 +36,4 @@ jobs:
       - name: Publish
         run: |
           cargo login ${{ secrets.RUST_API_KEY }}
-          cargo publish --token ${{ secrets.RUST_API_KEY }} --all-features
+          cargo publish --token ${{ secrets.RUST_API_KEY }} --package memphis-rust-community --all-features
