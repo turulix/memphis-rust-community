@@ -46,6 +46,5 @@ pub mod station;
 pub(crate) mod constants;
 pub(crate) mod helper;
 pub(crate) mod models;
-pub(crate) mod station_settings;
 
 mod request_error;

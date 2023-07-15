@@ -19,8 +19,7 @@ categories = ["network-programming", "asynchronous", "messaging"]
 all-features = true
 
 [features]
-default = []
-# default = ["producers", "consumers", "schemaverse"]
+default = ["producers", "consumers"]
 full = ["producers", "consumers", "schemaverse", "validator_json", "validator_graphql", "validator_protobuf"]
 
 producers = []

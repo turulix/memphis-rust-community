@@ -1,5 +1,4 @@
 pub struct MemphisProducerOptions {
-    pub(crate) station_name: String,
     pub producer_name: String,
     pub generate_unique_suffix: bool,
 }
@@ -7,7 +6,6 @@ pub struct MemphisProducerOptions {
 impl Default for MemphisProducerOptions {
     fn default() -> Self {
         Self {
-            station_name: "Default_Station_Name".to_string(),
             producer_name: "Default_Producer_name".to_string(),
             generate_unique_suffix: true,
         }

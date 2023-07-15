@@ -12,7 +12,6 @@ use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecia
 use crate::models::request::NotificationRequest;
 use crate::request_error::RequestError;
 use crate::station::{MemphisStation, MemphisStationsOptions};
-use crate::station_settings::StationSettingsStore;
 
 /// # Memphis Client
 ///
@@ -32,7 +31,6 @@ pub struct MemphisClient {
     broker_connection: Arc<Client>,
     pub(crate) username: Arc<String>,
     pub(crate) connection_id: Arc<String>,
-    pub(crate) station_settings: Arc<StationSettingsStore>,
 }
 
 impl MemphisClient {
@@ -84,7 +82,6 @@ impl MemphisClient {
             broker_connection: Arc::new(connection),
             username: Arc::new(memphis_username.to_string()),
             connection_id: Arc::new(uuid.to_string()),
-            station_settings: Arc::new(StationSettingsStore::new()),
         })
     }
 
