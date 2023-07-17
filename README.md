@@ -7,7 +7,6 @@
 # Memphis Rust Client
 
 This is an unofficial client for Memphis, written in Rust.
-This is a work in progress and is not yet ready for production use.
 
 ## Installation
 
@@ -19,6 +18,8 @@ memphis-rust-community = "0.2.0"
 ```
 
 ## Usage
+
+### Consumer
 
 ```rust
 use memphis_rust_community::memphis_client::MemphisClient;
@@ -44,6 +45,33 @@ async fn main() {
             break;
         }
     });
+}
+```
+
+### Producer
+
+```rust
+use memphis_rust_community::memphis_client::MemphisClient;
+use memphis_rust_community::producer::MemphisProducerOptions;
+use memphis_rust_community::station::MemphisStationsOptions;
+
+#[tokio::main]
+async fn main() {
+    let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+
+    let station_options = MemphisStationsOptions::new("my-station");
+    let station = client.create_station(station_options).await.unwrap();
+
+    let producer_options = MemphisProducerOptions::new("my-producer")
+        .with_generate_unique_suffix(true);
+
+    let mut producer = station.create_producer(producer_options).await.unwrap();
+
+    let msg = ComposableMessage::new()
+        .with_payload("Hello World!")
+        .with_header("TestHeader", "TestValue");
+
+    producer.produce(msg).await.unwrap();
 }
 ```
 
@@ -81,4 +109,4 @@ async fn main() {
 - ✅ Get message sequence number
 - ✅ Destroying a Consumer
 - ✅ Check if broker is connected
-- ❌ Consumer prefetch
+- ✅ Consumer prefetch
