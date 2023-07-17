@@ -93,7 +93,13 @@ impl MemphisClient {
         }
     }
 
-    pub async fn send_notification(&self, notification_type: MemphisNotificationType, title: &str, message: &str, code: &str) -> Result<(), RequestError> {
+    pub(crate) async fn send_notification(
+        &self,
+        notification_type: MemphisNotificationType,
+        title: &str,
+        message: &str,
+        code: &str,
+    ) -> Result<(), RequestError> {
         let req = NotificationRequest {
             title,
             msg: message,
