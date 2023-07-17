@@ -41,8 +41,12 @@ jobs:
           rustup default nightly
 
       - name: Run Tests
+        env:
+          RUST_TEST_TIME_UNIT: 60000,120000
+          RUST_TEST_TIME_INTEGRATION: 60000,120000
+          RUST_TEST_TIME_DOCTEST: 60000,120000
         run: |
-          cargo test --workspace --all-targets --all-features
+          cargo test --workspace --all-targets --all-features -- --ensure-time --report-time -Z unstable-options
 
   check_format:
     name: check (format)
@@ -111,5 +115,5 @@ jobs:
 
       - name: Check lint
         env:
-            RUSTDOCFLAGS: -D warnings
+          RUSTDOCFLAGS: -D warnings
         run: cargo doc --workspace --all-features
