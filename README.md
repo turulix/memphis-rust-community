@@ -7,7 +7,6 @@
 # Memphis Rust Client
 
 This is an unofficial client for Memphis, written in Rust.
-This is a work in progress and is not yet ready for production use.
 
 ## Installation
 
