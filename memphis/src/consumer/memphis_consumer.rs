@@ -135,47 +135,77 @@ impl MemphisConsumer {
             .await?;
 
         tokio::spawn(async move {
-            while !cloned_token.is_cancelled() {
-                let messages = consumer
+            loop {
+                let msg_handler = consumer
                     .batch()
                     .max_messages(cloned_options.batch_size)
                     .expires(Duration::from_millis(cloned_options.batch_max_time_to_wait_ms))
-                    .messages()
-                    .await;
+                    .messages();
 
-                if messages.is_err() {
-                    error!("Error while fetching messages from JetStream. {:?}", messages.err());
-                    continue;
-                }
-
-                let mut messages = match messages {
-                    Ok(m) => m,
-                    Err(e) => {
-                        error!("Error while fetching messages from JetStream. {:?}", e);
-                        continue;
-                    }
-                };
-                while let Some(Ok(msg)) = messages.next().await {
-                    trace!(
-                        "Message received from Memphis. (Subject: {}, Sequence: {})",
-                        msg.subject,
-                        match msg.info() {
-                            Ok(info) => info.stream_sequence,
-                            Err(_e) => 0,
+                tokio::select! {
+                    _ = cloned_token.cancelled() => {
+                        debug!("Consumer '{}' on group '{}' was cancelled.", &cloned_options.consumer_name, &cloned_options.consumer_group);
+                        break;
+                    },
+                    Ok(mut batch) = msg_handler => {
+                        while let Some(Ok(msg)) = batch.next().await {
+                            trace!(
+                                "Message received from Memphis. (Subject: {}, Sequence: {})",
+                                msg.subject,
+                                match msg.info() {
+                                    Ok(info) => info.stream_sequence,
+                                    Err(_e) => 0,
+                                }
+                            );
+                            let memphis_message = MemphisMessage::new(
+                                msg,
+                                cloned_client.clone(),
+                                cloned_options.consumer_group.clone(),
+                                cloned_options.max_ack_time_ms,
+                            );
+                            let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
+                            if res.is_err() {
+                                error!("Error while sending message to the receiver. {:?}", res.err());
+                            }
                         }
-                    );
-                    let memphis_message = MemphisMessage::new(
-                        msg,
-                        cloned_client.clone(),
-                        cloned_options.consumer_group.clone(),
-                        cloned_options.max_ack_time_ms,
-                    );
-                    let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
-                    if res.is_err() {
-                        error!("Error while sending message to the receiver. {:?}", res.err());
                     }
                 }
             }
+
+            // loop {
+            //     if messages.is_err() {
+            //         error!("Error while fetching messages from JetStream. {:?}", messages.err());
+            //         continue;
+            //     }
+            //
+            //     let mut messages = match messages {
+            //         Ok(m) => m,
+            //         Err(e) => {
+            //             error!("Error while fetching messages from JetStream. {:?}", e);
+            //             continue;
+            //         }
+            //     };
+            //     while let Some(Ok(msg)) = messages.next().await {
+            //         trace!(
+            //             "Message received from Memphis. (Subject: {}, Sequence: {})",
+            //             msg.subject,
+            //             match msg.info() {
+            //                 Ok(info) => info.stream_sequence,
+            //                 Err(_e) => 0,
+            //             }
+            //         );
+            //         let memphis_message = MemphisMessage::new(
+            //             msg,
+            //             cloned_client.clone(),
+            //             cloned_options.consumer_group.clone(),
+            //             cloned_options.max_ack_time_ms,
+            //         );
+            //         let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
+            //         if res.is_err() {
+            //             error!("Error while sending message to the receiver. {:?}", res.err());
+            //         }
+            //     }
+            // }
         });
 
         debug!(
@@ -259,6 +289,10 @@ impl MemphisConsumer {
         info!("Destroyed consumer {}.", &self.options.consumer_name);
 
         Ok(())
+    }
+
+    pub fn get_name(&self) -> String {
+        self.options.consumer_name.clone()
     }
 
     /// Starts pinging the consumer, to ensure its availability.

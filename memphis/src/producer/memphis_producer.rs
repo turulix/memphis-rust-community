@@ -100,6 +100,10 @@ impl MemphisProducer {
 
         Ok(())
     }
+
+    pub fn get_name(&self) -> String {
+        self.options.producer_name.clone()
+    }
 }
 
 #[cfg(feature = "schemaverse")]
