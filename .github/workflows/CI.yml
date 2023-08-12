@@ -49,6 +49,7 @@ jobs:
         run: |
           cargo test --workspace --all-targets --all-features -- --ensure-time --report-time -Z unstable-options
 
+
   check_test_stable:
     name: check (test) on stable
     runs-on: ubuntu-latest
@@ -69,7 +70,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.toml') }
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Setup Memphis Stable
         run: |
