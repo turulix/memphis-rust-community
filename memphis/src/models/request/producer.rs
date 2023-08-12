@@ -33,4 +33,7 @@ pub(crate) struct DestroyProducerRequest<'a> {
 
     #[serde(rename = "username")]
     pub(crate) username: &'a str,
+
+    #[serde(rename = "req_version")]
+    pub(crate) req_version: u32,
 }

@@ -167,6 +167,7 @@ impl MemphisProducer {
             station_name: &self.station.options.station_name,
             connection_id: &self.station.memphis_client.connection_id,
             username: &self.station.memphis_client.username,
+            req_version: 1,
         };
 
         if let Err(e) = self

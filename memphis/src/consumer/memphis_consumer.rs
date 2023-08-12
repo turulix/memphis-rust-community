@@ -270,68 +270,6 @@ impl MemphisConsumer {
         }
 
         Ok(receiver)
-        // let cloned_token = self.cancellation_token.clone();
-        // let cloned_client = self.station.memphis_client.clone();
-        // let cloned_options = self.options.clone();
-        //
-        // let (sender, receiver) = unbounded_channel::<MemphisEvent>();
-        // self.message_sender = Some(sender.clone());
-        //
-        // // Memphis will create a stream with the name of the station.
-        // // On this Stream it will create a consumer with the name of the consumer Group.
-        // // If no consumer group is provided, the consumer name will be used.
-        // let consumer: PullConsumer = cloned_client
-        //     .get_jetstream_context()
-        //     .get_stream(&self.station.get_internal_name())
-        //     .await?
-        //     .get_consumer(&self.get_internal_name())
-        //     .await?;
-        //
-        // tokio::spawn(async move {
-        //     loop {
-        //         let msg_handler = consumer
-        //             .batch()
-        //             .max_messages(cloned_options.batch_size)
-        //             .expires(Duration::from_millis(
-        //                 cloned_options.batch_max_time_to_wait_ms,
-        //             ))
-        //             .messages();
-        //
-        //         tokio::select! {
-        //             _ = cloned_token.cancelled() => {
-        //                 debug!("Consumer '{}' on group '{}' was cancelled.", &cloned_options.consumer_name, &cloned_options.consumer_group);
-        //                 break;
-        //             },
-        //             Ok(mut batch) = msg_handler => {
-        //                 while let Some(Ok(msg)) = batch.next().await {
-        //                     trace!(
-        //                         "Message received from Memphis. (Subject: {}, Sequence: {})",
-        //                         msg.subject,
-        //                         match msg.info() {
-        //                             Ok(info) => info.stream_sequence,
-        //                             Err(_e) => 0,
-        //                         }
-        //                     );
-        //                     let memphis_message = MemphisMessage::new(
-        //                         msg,
-        //                         cloned_client.clone(),
-        //                         cloned_options.consumer_group.clone(),
-        //                         cloned_options.max_ack_time_ms,
-        //                     );
-        //                     let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
-        //                     if res.is_err() {
-        //                         error!("Error while sending message to the receiver. {:?}", res.err());
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
-        //
-        // debug!(
-        //     "Successfully started consuming messages from Memphis with consumer '{}' on group: '{}'",
-        //     self.options.consumer_name, self.options.consumer_group
-        // );
     }
 
     /// # Starts consuming DLS messages from Memphis.
@@ -474,7 +412,7 @@ impl MemphisConsumer {
         });
     }
 
-    /// Get the effective consumer name. If the consumer group is empty, the consumer name is used. Otherwise, the consumer group is used.
+    /// Get the internal name of the consumer. This is the name of the consumer in Jetstream.
     pub fn get_internal_name(&self) -> String {
         if self.options.consumer_group.is_empty() {
             get_internal_name(&self.options.consumer_name)

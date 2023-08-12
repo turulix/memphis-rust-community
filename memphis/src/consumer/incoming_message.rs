@@ -13,7 +13,7 @@ use crate::RequestError;
 
 #[derive(Clone)]
 pub struct MemphisMessage {
-    msg: Arc<Message>,
+    msg: Message,
     memphis_client: MemphisClient,
     consumer_group: String,
     pub max_ack_time_ms: i32,
@@ -27,7 +27,7 @@ impl MemphisMessage {
         max_ack_time_ms: i32,
     ) -> Self {
         MemphisMessage {
-            msg: Arc::new(msg),
+            msg,
             memphis_client,
             consumer_group,
             max_ack_time_ms,
