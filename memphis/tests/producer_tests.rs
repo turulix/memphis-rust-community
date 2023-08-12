@@ -1,5 +1,4 @@
 use crate::common::{connect_to_memphis, create_random_producer, create_random_station};
-use memphis_rust_community::producer::MemphisProducerOptions;
 
 mod common;
 

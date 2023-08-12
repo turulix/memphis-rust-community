@@ -1,7 +1,5 @@
 mod common;
 
-use async_nats::jetstream::context::GetStreamError;
-use async_nats::jetstream::stream::Stream;
 use common::*;
 use memphis_rust_community::consumer::{MemphisConsumerOptions, MemphisEvent};
 use memphis_rust_community::producer::ComposableMessage;
