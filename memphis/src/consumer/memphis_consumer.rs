@@ -250,7 +250,7 @@ impl MemphisConsumer {
             Some(list) => {
                 for x in list {
                     let res = start_pull_subscription(
-                        &self.station.get_internal_name(Some(x.clone())),
+                        &self.station.get_internal_name(Some(x)),
                         &self.get_internal_name(),
                         cloned_client.clone(),
                         cloned_token.clone(),
