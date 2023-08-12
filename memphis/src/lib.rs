@@ -9,7 +9,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+//!     let client = MemphisClient::new("localhost:6666", "root", "memphis", None).await.unwrap();
 //!
 //!     let station_options = MemphisStationsOptions::new("my-station");
 //!     let station = client.create_station(station_options).await.unwrap();

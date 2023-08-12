@@ -6,11 +6,8 @@ use tokio_test::assert_ok;
 
 #[allow(dead_code)]
 pub async fn connect_to_memphis() -> MemphisClient {
-    let client = MemphisClient::new("localhost:6666", "root", "memphis").await;
-
-    assert_ok!(&client, "Connecting to Memphis should be possible.");
-
-    client.unwrap()
+    let client = MemphisClient::new("localhost:6666", "root", "memphis", None).await;
+    assert_ok!(client, "Connecting to Memphis should be possible.")
 }
 
 #[allow(dead_code)]
@@ -18,7 +15,8 @@ pub async fn create_random_station(client: &MemphisClient) -> MemphisStation {
     let random_station_name = uuid::Uuid::new_v4().to_string();
     eprintln!("random_station_name: {}", random_station_name);
 
-    let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::Memory);
+    let station_options =
+        MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::Memory);
 
     let station = client.create_station(station_options).await;
 
@@ -50,13 +48,16 @@ pub async fn create_random_producer(station: &MemphisStation) -> MemphisProducer
 
     let producer = station.create_producer(producer_options).await;
 
-    assert_ok!(&producer, "Creating Producer should be possible.");
-
-    producer.unwrap()
+    assert_ok!(producer, "Creating Producer should be possible.")
 }
 
 #[allow(dead_code)]
-pub async fn create_random_setup() -> (MemphisClient, MemphisStation, MemphisConsumer, MemphisProducer) {
+pub async fn create_random_setup() -> (
+    MemphisClient,
+    MemphisStation,
+    MemphisConsumer,
+    MemphisProducer,
+) {
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
     let consumer = create_random_consumer(&station).await;

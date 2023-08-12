@@ -3,6 +3,7 @@ use std::sync::Arc;
 use log::{error, info};
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
+use crate::helper::memphis_util::get_internal_name;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::{CreateStationRequest, DestroyStationRequest, DlsConfiguration};
 #[cfg(feature = "schemaverse")]
@@ -20,7 +21,10 @@ pub struct MemphisStation {
 }
 
 impl MemphisStation {
-    pub(crate) async fn new(client: MemphisClient, options: MemphisStationsOptions) -> Result<Self, RequestError> {
+    pub(crate) async fn new(
+        client: MemphisClient,
+        options: MemphisStationsOptions,
+    ) -> Result<Self, RequestError> {
         let req = CreateStationRequest {
             name: &options.station_name,
             retention_type: &options.retention_type.to_string(),
@@ -35,9 +39,13 @@ impl MemphisStation {
             },
             username: &client.username,
             tiered_storage_enabled: options.tiered_storage_enabled,
+            partitions_number: options.partition_number,
         };
 
-        if let Err(e) = client.send_internal_request(&req, MemphisSpecialStation::StationCreations).await {
+        if let Err(e) = client
+            .send_internal_request(&req, MemphisSpecialStation::StationCreations)
+            .await
+        {
             error!("Failed to create station: {}", e);
             return Err(e);
         }
@@ -67,8 +75,27 @@ impl MemphisStation {
         Ok(())
     }
 
+    /// Returns the name of the station.
     pub fn get_name(&self) -> &str {
         &self.options.station_name
+    }
+
+    /// Returns the internal name of the station. This is the name of the stream used in Jetstream.
+    pub fn get_internal_name(&self, partition: Option<u32>) -> String {
+        match partition {
+            None => get_internal_name(&self.options.station_name),
+            Some(partition) => format!(
+                "{}${}",
+                get_internal_name(&self.options.station_name),
+                partition
+            )
+            .to_string(),
+        }
+    }
+
+    /// This is the name of the subject used to send messages to the station.
+    pub fn get_internal_subject_name(&self, partition: Option<u32>) -> String {
+        format!("{}.final", self.get_internal_name(partition))
     }
 }
 
@@ -91,7 +118,7 @@ mod consumers {
         /// #[tokio::main]
         /// async fn main() {
         ///     use memphis_rust_community::station::MemphisStationsOptions;
-        ///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+        ///     let client = MemphisClient::new("localhost:6666", "root", "memphis", None).await.unwrap();
         ///
         ///     let station_options = MemphisStationsOptions::new("my-station");
         ///     let station = client.create_station(station_options).await.unwrap();
@@ -101,7 +128,10 @@ mod consumers {
         ///
         ///     let msg_receiver = consumer.consume().await.unwrap();
         /// }
-        pub async fn create_consumer(&self, consumer_options: MemphisConsumerOptions) -> Result<MemphisConsumer, ConsumerError> {
+        pub async fn create_consumer(
+            &self,
+            consumer_options: MemphisConsumerOptions,
+        ) -> Result<MemphisConsumer, ConsumerError> {
             MemphisConsumer::new(self.clone(), consumer_options).await
         }
     }
@@ -114,7 +144,10 @@ mod producer {
     use crate::RequestError;
 
     impl MemphisStation {
-        pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
+        pub async fn create_producer(
+            &self,
+            producer_options: MemphisProducerOptions,
+        ) -> Result<MemphisProducer, RequestError> {
             MemphisProducer::new(self.clone(), producer_options).await
         }
     }

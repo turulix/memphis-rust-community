@@ -11,7 +11,8 @@ defaults:
     shell: bash
 
 jobs:
-  test:
+  check_test_latest:
+    name: check (test) on latest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,7 +31,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: Setup Memphis
+      - name: Setup Memphis Latest
         run: |
           curl -sSL https://raw.githubusercontent.com/memphisdev/memphis-docker/master/docker-compose-latest.yml > docker-compose.yml
           docker-compose up -d
@@ -48,6 +49,47 @@ jobs:
         run: |
           cargo test --workspace --all-targets --all-features -- --ensure-time --report-time -Z unstable-options
 
+  check_test_stable:
+    name: check (test) on stable
+    runs-on: ubuntu-latest
+    needs:
+      - check_test_latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache Rust
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-rust
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.toml') }
+
+      - name: Setup Memphis Stable
+        run: |
+          curl -sSL https://raw.githubusercontent.com/memphisdev/memphis-docker/master/docker-compose.yml > docker-compose.yml
+          docker-compose up -d
+
+      - name: Install Rust
+        run: |
+          rustup install nightly
+          rustup default nightly
+
+      - name: Run Tests
+        env:
+          RUST_TEST_TIME_UNIT: 60000,120000
+          RUST_TEST_TIME_INTEGRATION: 60000,120000
+          RUST_TEST_TIME_DOCTEST: 60000,120000
+        run: |
+          cargo test --workspace --all-targets --all-features -- --ensure-time --report-time -Z unstable-options
+
+
   check_format:
     name: check (format)
     runs-on: ubuntu-latest
@@ -63,7 +105,6 @@ jobs:
 
       - name: Run the check
         run: cargo fmt -- --check
-
   check_lint:
     name: check (lint)
     runs-on: ubuntu-latest
@@ -89,7 +130,6 @@ jobs:
 
       - name: Check lint
         run: cargo clippy --benches --tests --examples --all-features -- --deny clippy::all
-
   check_docs:
     name: check (docs)
     runs-on: ubuntu-latest

@@ -1,0 +1,11 @@
+use crate::common::{connect_to_memphis, create_random_producer, create_random_station};
+use memphis_rust_community::producer::MemphisProducerOptions;
+
+mod common;
+
+#[tokio::test]
+async fn create_producer() {
+    let client = connect_to_memphis().await;
+    let station = create_random_station(&client).await;
+    let _producer = create_random_producer(&station).await;
+}

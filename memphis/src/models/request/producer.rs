@@ -13,6 +13,9 @@ pub(crate) struct CreateProducerRequest<'a> {
     #[serde(rename = "connection_id")]
     pub(crate) connection_id: &'a str,
 
+    #[serde(rename = "req_version")]
+    pub(crate) req_version: u32,
+
     #[serde(rename = "username")]
     pub(crate) username: &'a str,
 }

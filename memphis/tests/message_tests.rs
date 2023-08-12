@@ -1,15 +1,16 @@
-use memphis_rust_community::consumer::MemphisEvent;
-use memphis_rust_community::producer::ComposableMessage;
+use memphis_rust_community::consumer::{MemphisConsumerOptions, MemphisEvent};
+use memphis_rust_community::producer::{ComposableMessage, MemphisProducerOptions};
 
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::Mutex;
-use tokio_test::assert_ok;
+use tokio_test::{assert_err, assert_ok};
 
 mod common;
 
 use common::*;
+use memphis_rust_community::station::MemphisStationsOptions;
 
 #[tokio::test]
 async fn send_receive_message() {
@@ -19,11 +20,15 @@ async fn send_receive_message() {
     let mut consumer = create_random_consumer(&station).await;
     let mut receiver = consumer.consume().await.unwrap();
 
-    let producer = create_random_producer(&station).await;
+    let mut producer = create_random_producer(&station).await;
     let payload = "Hello World!";
 
     let res = producer
-        .produce(ComposableMessage::new().with_payload(payload).with_header("TestHeader", "TestValue"))
+        .produce(
+            ComposableMessage::new()
+                .with_payload(payload)
+                .with_header("TestHeader", "TestValue"),
+        )
         .await;
     assert_ok!(res, "Sending a Message should be possible.");
 
@@ -31,7 +36,15 @@ async fn send_receive_message() {
     match msg {
         MemphisEvent::MessageReceived(m) => {
             assert_eq!(m.get_data_as_string().unwrap().as_str(), payload);
-            assert_eq!(m.get_headers().clone().unwrap().get("TestHeader").unwrap().as_str(), "TestValue");
+            assert_eq!(
+                m.get_headers()
+                    .clone()
+                    .unwrap()
+                    .get("TestHeader")
+                    .unwrap()
+                    .as_str(),
+                "TestValue"
+            );
             m.ack().await.unwrap();
         }
         _ => panic!("Received Event should be a MessageReceived Event."),
@@ -56,10 +69,12 @@ async fn message_resend_test() {
         *dls_received_clone.lock().await = true;
     });
 
-    let producer = create_random_producer(&station).await;
+    let mut producer = create_random_producer(&station).await;
     let payload = "This should be send twice!";
 
-    let res = producer.produce(ComposableMessage::new().with_payload(payload)).await;
+    let res = producer
+        .produce(ComposableMessage::new().with_payload(payload))
+        .await;
     assert_ok!(res, "Sending a Message should be possible.");
 
     let msg = receiver.recv().await.unwrap();
@@ -79,17 +94,23 @@ async fn message_resend_test() {
     }
 
     tokio::time::sleep(Duration::from_secs(7)).await;
-    assert!(!*dls_received.lock().await, "The Message should not be received by the DLS");
+    assert!(
+        !*dls_received.lock().await,
+        "The Message should not be received by the DLS"
+    );
     handle.abort();
 }
 
 #[tokio::test]
 async fn message_delay_test() {
-    let (_, _station, mut consumer, producer) = create_random_setup().await;
+    let (_, _station, mut consumer, mut producer) = create_random_setup().await;
 
     let payload = "This should be delayed!";
 
-    producer.produce(ComposableMessage::new().with_payload(payload)).await.unwrap();
+    producer
+        .produce(ComposableMessage::new().with_payload(payload))
+        .await
+        .unwrap();
 
     let mut receiver = consumer.consume().await.unwrap();
     let msg = receiver.recv().await.unwrap();
@@ -121,14 +142,17 @@ async fn message_delay_test() {
             _ => panic!("Received Event should be a MessageReceived Event."),
         },
         Err(e) => {
-            panic!("Received Event should be an Error Event. Got an Error: {:?}", e)
+            panic!(
+                "Received Event should be an Error Event. Got an Error: {:?}",
+                e
+            )
         }
     }
 }
 
 #[tokio::test]
 async fn max_messages_test() {
-    let (_, _, mut consumer, producer) = create_random_setup().await;
+    let (_, _, mut consumer, mut producer) = create_random_setup().await;
     let mut receiver = consumer.consume().await.unwrap();
 
     let now = std::time::Instant::now();
@@ -145,17 +169,26 @@ async fn max_messages_test() {
             .await;
         assert_ok!(res, "Sending a Message should be possible.");
     }
-    eprintln!("Sending {} Messages took: {:?}", message_count, now.elapsed());
+    eprintln!(
+        "Sending {} Messages took: {:?}",
+        message_count,
+        now.elapsed()
+    );
 
     let now = std::time::Instant::now();
     let mut counter = 0;
     while let Some(msg) = receiver.recv().await {
         match msg {
             MemphisEvent::MessageReceived(m) => {
-                assert_eq!(m.get_data_as_string().unwrap().as_str(), format!("Message {}", &counter));
+                assert_eq!(
+                    m.get_data_as_string().unwrap().as_str(),
+                    format!("Message {}", &counter)
+                );
                 counter += 1;
                 m.ack().await.unwrap();
-                if m.get_headers().clone().unwrap().get("id").unwrap().as_str() == format!("{}", message_count - 1) {
+                if m.get_headers().clone().unwrap().get("id").unwrap().as_str()
+                    == format!("{}", message_count - 1)
+                {
                     break;
                 }
             }
@@ -163,9 +196,66 @@ async fn max_messages_test() {
         }
     }
     if counter != message_count {
-        panic!("Not all Messages were received. Only {} of {}", counter, message_count);
+        panic!(
+            "Not all Messages were received. Only {} of {}",
+            counter, message_count
+        );
     }
-    eprintln!("Receiving {} Messages took: {:?}", message_count, now.elapsed());
+    eprintln!(
+        "Receiving {} Messages took: {:?}",
+        message_count,
+        now.elapsed()
+    );
+}
+
+#[tokio::test]
+async fn partition_sending_receiving() {
+    let random_station_name = uuid::Uuid::new_v4().to_string();
+
+    eprintln!("random_station_name: {}", random_station_name);
+
+    let client = connect_to_memphis().await;
+    let station = assert_ok!(
+        client
+            .create_station(
+                MemphisStationsOptions::new(&random_station_name).with_partition_number(10)
+            )
+            .await
+    );
+
+    let mut producer = assert_ok!(
+        station
+            .create_producer(MemphisProducerOptions::new("producer"))
+            .await
+    );
+
+    let payload = "Some message";
+    for x in 0..20 {
+        let res = producer
+            .produce(
+                ComposableMessage::new()
+                    .with_payload(payload)
+                    .with_header("partition", format!("{}", x).as_str()),
+            )
+            .await;
+        assert_ok!(res, "Sending a Message should be possible.");
+    }
+
+    let mut consumer = assert_ok!(
+        station
+            .create_consumer(MemphisConsumerOptions::new("consumer"))
+            .await
+    );
+
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    let mut receiver = assert_ok!(consumer.consume().await);
+
+    for _ in 0..20 {
+        assert_ok!(receiver.try_recv());
+    }
+
+    assert_err!(receiver.try_recv());
 }
 
 //TODO: Test for Messages in DLS once Memphis automatically resends them.

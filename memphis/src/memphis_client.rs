@@ -22,7 +22,7 @@ use crate::station::{MemphisStation, MemphisStationsOptions};
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+///     let client = MemphisClient::new("localhost:6666", "root", "memphis", None).await.unwrap();
 /// }
 /// ```
 #[derive(Clone)]
@@ -39,6 +39,7 @@ impl MemphisClient {
     /// * `memphis_host` - The host of the Memphis server
     /// * `memphis_username` - The username of the Memphis user
     /// * `memphis_password` - The password of the Memphis user
+    /// * `account_id` - The account id of the Memphis account (Only used in cloud version) use None or "1" for self hosted
     ///
     /// # Example
     /// ```rust
@@ -49,22 +50,39 @@ impl MemphisClient {
     ///     let client = MemphisClient::new(
     ///         "localhost:6666",
     ///         "root",
-    ///         "memphis"
+    ///         "memphis",
+    ///         None
     ///     ).await.unwrap();
     /// }
-    pub async fn new(memphis_host: &str, memphis_username: &str, memphis_password: &str) -> Result<MemphisClient, ConnectError> {
+    pub async fn new(
+        memphis_host: &str,
+        memphis_username: &str,
+        memphis_password: &str,
+        account_id: Option<&str>,
+    ) -> Result<MemphisClient, ConnectError> {
         let uuid = Uuid::new_v4();
         let connection_name = format!("{}::{}", &uuid, memphis_username);
 
-        // TODO: Replace 1 with account_id
-        let broker_settings = MemphisClient::create_settings(format!("{}${}", memphis_username, 1).as_str(), memphis_password, connection_name.clone());
+        let account_id = account_id.unwrap_or("1");
 
-        let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await {
+        let broker_settings = MemphisClient::create_settings(
+            format!("{}${}", memphis_username, account_id).as_str(),
+            memphis_password,
+            connection_name.clone(),
+        );
+
+        let connection = match async_nats::connect_with_options(memphis_host, broker_settings).await
+        {
             Ok(c) => c,
             Err(e) => {
                 if e.to_string().contains("authorization violation") {
-                    let broker_settings = MemphisClient::create_settings(memphis_username, memphis_password, connection_name);
-                    let connection = async_nats::connect_with_options(memphis_host, broker_settings).await;
+                    let broker_settings = MemphisClient::create_settings(
+                        memphis_username,
+                        memphis_password,
+                        connection_name,
+                    );
+                    let connection =
+                        async_nats::connect_with_options(memphis_host, broker_settings).await;
                     match connection {
                         Ok(c) => c,
                         Err(e) => {
@@ -107,25 +125,35 @@ impl MemphisClient {
             code,
         };
 
-        self.send_internal_request(&req, MemphisSpecialStation::Notifications).await?;
+        self.send_internal_request(&req, MemphisSpecialStation::Notifications)
+            .await?;
 
         Ok(())
     }
 
-    pub async fn create_station(&self, station_options: MemphisStationsOptions) -> Result<MemphisStation, RequestError> {
+    pub async fn create_station(
+        &self,
+        station_options: MemphisStationsOptions,
+    ) -> Result<MemphisStation, RequestError> {
         MemphisStation::new(self.clone(), station_options).await
     }
 
-    pub(crate) fn get_jetstream_context(&self) -> &Context {
+    /// Returns the Jetstream Context used behind the scenes, only use this if you know what you are doing
+    pub fn get_jetstream_context(&self) -> &Context {
         &self.jetstream_context
     }
 
-    pub(crate) fn get_broker_connection(&self) -> &Client {
+    /// Returns the Broker Connection used behind the scenes, only use this if you know what you are doing
+    pub fn get_broker_connection(&self) -> &Client {
         &self.broker_connection
     }
 
     /// Sends a request to a internal/special Memphis Station and handles the errors
-    pub(crate) async fn send_internal_request(&self, request: &impl Serialize, request_type: MemphisSpecialStation) -> Result<Message, RequestError> {
+    pub(crate) async fn send_internal_request(
+        &self,
+        request: &impl Serialize,
+        request_type: MemphisSpecialStation,
+    ) -> Result<Message, RequestError> {
         if !self.is_connected() {
             return Err(RequestError::NotConnected);
         }
@@ -138,21 +166,42 @@ impl MemphisClient {
             .await
             .map_err(|e| RequestError::NatsError(e.into()))?;
 
-        let error_message = std::str::from_utf8(&res.payload).map_err(|e| RequestError::MemphisError(e.to_string()))?;
+        let error_message = std::str::from_utf8(&res.payload)
+            .map_err(|e| RequestError::MemphisError(e.to_string()))?;
 
         if !error_message.trim().is_empty() {
-            return Err(RequestError::MemphisError(error_message.to_string()));
+            let parsed_json: serde_json::Value = serde_json::from_str(error_message)?;
+            let raw_object = if let Some(obj) = parsed_json.as_object() {
+                obj
+            } else {
+                return Err(RequestError::MemphisError("Error parsing json".to_string()));
+            };
+            if let Some((_key, value)) = raw_object.get_key_value("error") {
+                let value = value.as_str().unwrap_or("Error was not a string");
+                return if value.to_string().trim().is_empty() {
+                    Ok(res)
+                } else {
+                    Err(RequestError::MemphisError(value.to_string()))
+                };
+            }
         }
 
         Ok(res)
     }
 
-    fn create_settings(memphis_username: &str, memphis_password: &str, connection_name: String) -> ConnectOptions {
-        ConnectOptions::with_user_and_password(memphis_username.to_string(), memphis_password.to_string())
-            .flush_interval(Duration::from_millis(100))
-            .connection_timeout(Duration::from_secs(5))
-            .ping_interval(Duration::from_secs(1))
-            .request_timeout(Some(Duration::from_secs(5)))
-            .name(connection_name)
+    fn create_settings(
+        memphis_username: &str,
+        memphis_password: &str,
+        connection_name: String,
+    ) -> ConnectOptions {
+        ConnectOptions::with_user_and_password(
+            memphis_username.to_string(),
+            memphis_password.to_string(),
+        )
+        .flush_interval(Duration::from_millis(100))
+        .connection_timeout(Duration::from_secs(5))
+        .ping_interval(Duration::from_secs(1))
+        .request_timeout(Some(Duration::from_secs(5)))
+        .name(connection_name)
     }
 }

@@ -8,4 +8,7 @@ pub enum ConsumerError {
 
     #[error("InvalidSequence")]
     InvalidSequence,
+
+    #[error("InvalidResponse")]
+    InvalidResponse(String),
 }
