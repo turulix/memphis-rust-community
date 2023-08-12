@@ -52,13 +52,19 @@ impl MemphisProducer {
             .map_err(|e| RequestError::MemphisError(e.to_string()))?;
 
         let producer = match serde_json::from_str::<CreateProducerResponse>(res) {
-            Ok(x) => Self {
-                station,
-                options,
-                partitions_iterator: Some(PartitionIterator::new(
-                    x.partitions_update.partitions_list,
-                )),
-            },
+            Ok(x) => {
+                let partitions_iterator = if let Some(partitions) = x.partitions_update {
+                    Some(PartitionIterator::new(partitions.partitions_list))
+                } else {
+                    None
+                };
+
+                Self {
+                    station,
+                    options,
+                    partitions_iterator,
+                }
+            }
             Err(e) => {
                 if res.is_empty() {
                     Self {

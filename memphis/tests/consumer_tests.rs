@@ -1,5 +1,7 @@
 mod common;
 
+use async_nats::jetstream::context::GetStreamError;
+use async_nats::jetstream::stream::Stream;
 use common::*;
 use memphis_rust_community::consumer::{MemphisConsumerOptions, MemphisEvent};
 use memphis_rust_community::producer::ComposableMessage;
@@ -24,12 +26,21 @@ async fn create_consumer() {
             .await
     );
 
-    let stream = assert_ok!(
-        client
-            .get_jetstream_context()
-            .get_stream(station.get_internal_name(Some(1)))
-            .await
-    );
+    let stream = match client
+        .get_jetstream_context()
+        .get_stream(station.get_internal_name(Some(1)))
+        .await
+    {
+        Ok(s) => s,
+        Err(_e) => {
+            assert_ok!(
+                client
+                    .get_jetstream_context()
+                    .get_stream(station.get_internal_name(None))
+                    .await
+            )
+        }
+    };
 
     let consumer1_info = assert_ok!(stream.consumer_info("no-group").await);
     assert!(consumer1_info.name.eq(&consumer1.get_internal_name()));

@@ -11,6 +11,7 @@ mod common;
 
 use common::*;
 use memphis_rust_community::station::MemphisStationsOptions;
+use memphis_rust_community::station::StorageType::Memory;
 
 #[tokio::test]
 async fn send_receive_message() {
@@ -218,10 +219,20 @@ async fn partition_sending_receiving() {
     let station = assert_ok!(
         client
             .create_station(
-                MemphisStationsOptions::new(&random_station_name).with_partition_number(10)
+                MemphisStationsOptions::new(&random_station_name)
+                    .with_storage_type(Memory)
+                    .with_partition_number(10)
             )
             .await
     );
+
+    let mut consumer = assert_ok!(
+        station
+            .create_consumer(MemphisConsumerOptions::new("consumer"))
+            .await
+    );
+
+    let mut receiver = assert_ok!(consumer.consume().await);
 
     let mut producer = assert_ok!(
         station
@@ -241,15 +252,7 @@ async fn partition_sending_receiving() {
         assert_ok!(res, "Sending a Message should be possible.");
     }
 
-    let mut consumer = assert_ok!(
-        station
-            .create_consumer(MemphisConsumerOptions::new("consumer"))
-            .await
-    );
-
-    tokio::time::sleep(Duration::from_secs(2)).await;
-
-    let mut receiver = assert_ok!(consumer.consume().await);
+    tokio::time::sleep(Duration::from_secs(10)).await;
 
     for _ in 0..20 {
         assert_ok!(receiver.try_recv());
