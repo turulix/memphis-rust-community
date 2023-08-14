@@ -81,7 +81,7 @@ impl MemphisProducer {
         Ok(producer)
     }
 
-    pub async fn produce(&mut self, mut message: ComposableMessage) -> Result<(), ProducerError> {
+    pub async fn produce(&self, mut message: ComposableMessage) -> Result<(), ProducerError> {
         if message.payload.is_empty() {
             return Err(ProducerError::PayloadEmpty);
         }
@@ -106,7 +106,7 @@ impl MemphisProducer {
             .await
             .map_err(ProducerError::SchemaValidationError)?;
 
-        match &mut self.partitions_iterator {
+        match &self.partitions_iterator {
             None => {
                 if let Err(e) = self
                     .station
@@ -140,7 +140,10 @@ impl MemphisProducer {
                     .memphis_client
                     .get_broker_connection()
                     .publish_with_headers(
-                        format!("{}.final", &self.station.get_internal_name(Some(partition))),
+                        format!(
+                            "{}.final",
+                            &self.station.get_internal_name(Some(*partition))
+                        ),
                         message.headers,
                         message.payload,
                     )
@@ -215,7 +218,7 @@ impl MemphisProducer {
 
     async fn send_notification(
         &self,
-        message: &&ComposableMessage,
+        message: &ComposableMessage,
         e: &SchemaValidationError,
     ) -> Result<(), SchemaValidationError> {
         self.station
