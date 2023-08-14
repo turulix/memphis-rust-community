@@ -10,6 +10,7 @@ pub struct MemphisStationsOptions {
     pub send_poison_msg_to_dls: bool,
     pub send_schema_failed_msg_to_dls: bool,
     pub tiered_storage_enabled: bool,
+    pub partition_number: u32,
 }
 
 #[derive(Debug, Default)]
@@ -18,6 +19,7 @@ pub enum RetentionType {
     MessageAgeSec,
     Messages,
     Bytes,
+    AckBased,
 }
 
 #[derive(Debug, Default)]
@@ -68,12 +70,19 @@ impl MemphisStationsOptions {
         self.send_poison_msg_to_dls = send_poison_msg_to_dls;
         self
     }
-    pub fn with_send_schema_failed_msg_to_dls(mut self, send_schema_failed_msg_to_dls: bool) -> Self {
+    pub fn with_send_schema_failed_msg_to_dls(
+        mut self,
+        send_schema_failed_msg_to_dls: bool,
+    ) -> Self {
         self.send_schema_failed_msg_to_dls = send_schema_failed_msg_to_dls;
         self
     }
     pub fn with_tiered_storage_enabled(mut self, tiered_storage_enabled: bool) -> Self {
         self.tiered_storage_enabled = tiered_storage_enabled;
+        self
+    }
+    pub fn with_partition_number(mut self, partition_number: u32) -> Self {
+        self.partition_number = partition_number;
         self
     }
 }
@@ -91,6 +100,7 @@ impl Default for MemphisStationsOptions {
             send_poison_msg_to_dls: true,
             send_schema_failed_msg_to_dls: true,
             tiered_storage_enabled: false,
+            partition_number: 1,
         }
     }
 }
@@ -101,6 +111,7 @@ impl ToString for RetentionType {
             RetentionType::MessageAgeSec => "message_age_sec",
             RetentionType::Messages => "messages",
             RetentionType::Bytes => "bytes",
+            RetentionType::AckBased => "ack_based",
         }
         .to_string()
     }

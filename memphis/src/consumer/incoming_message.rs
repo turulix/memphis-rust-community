@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 use std::string::FromUtf8Error;
-use std::sync::Arc;
 use std::time::Duration;
 
 use async_nats::jetstream::{AckKind, Message};
@@ -13,16 +12,21 @@ use crate::RequestError;
 
 #[derive(Clone)]
 pub struct MemphisMessage {
-    msg: Arc<Message>,
+    msg: Message,
     memphis_client: MemphisClient,
     consumer_group: String,
     pub max_ack_time_ms: i32,
 }
 
 impl MemphisMessage {
-    pub(crate) fn new(msg: Message, memphis_client: MemphisClient, consumer_group: String, max_ack_time_ms: i32) -> Self {
+    pub(crate) fn new(
+        msg: Message,
+        memphis_client: MemphisClient,
+        consumer_group: String,
+        max_ack_time_ms: i32,
+    ) -> Self {
         MemphisMessage {
-            msg: Arc::new(msg),
+            msg,
             memphis_client,
             consumer_group,
             max_ack_time_ms,
@@ -42,7 +46,9 @@ impl MemphisMessage {
                             consumer_group_name: self.consumer_group.clone(),
                         };
 
-                        self.memphis_client.send_internal_request(&req, MemphisSpecialStation::PmAcks).await?;
+                        self.memphis_client
+                            .send_internal_request(&req, MemphisSpecialStation::PmAcks)
+                            .await?;
                     }
                 }
                 Err(e.into())
@@ -92,7 +98,9 @@ impl MemphisMessage {
 
 impl Debug for MemphisMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let data = self.get_data_as_string().unwrap_or_else(|_| format!("{:x?}", self.get_data()));
+        let data = self
+            .get_data_as_string()
+            .unwrap_or_else(|_| format!("{:x?}", self.get_data()));
 
         f.debug_struct("MemphisMessage")
             .field("msg", &data)

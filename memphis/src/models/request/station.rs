@@ -12,6 +12,7 @@ pub struct CreateStationRequest<'a> {
     pub dls_configuration: DlsConfiguration,
     pub username: &'a str,
     pub tiered_storage_enabled: bool,
+    pub partitions_number: u32,
 }
 
 #[derive(Debug, Serialize)]

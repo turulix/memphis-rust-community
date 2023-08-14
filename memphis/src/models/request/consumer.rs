@@ -21,16 +21,19 @@ pub(crate) struct CreateConsumerRequest<'a> {
     pub(crate) max_ack_time_ms: i32,
 
     #[serde(rename = "max_msg_deliveries")]
-    pub(crate) max_msg_count_for_delivery: i32,
-
-    #[serde(rename = "username")]
-    pub(crate) username: &'a str,
+    pub(crate) max_msg_deliveries: i32,
 
     #[serde(rename = "start_consume_from_sequence")]
     pub(crate) start_consume_from_sequence: i32,
 
     #[serde(rename = "last_messages")]
     pub(crate) last_messages: i32,
+
+    #[serde(rename = "req_version")]
+    pub(crate) req_version: u32,
+
+    #[serde(rename = "username")]
+    pub(crate) username: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -46,4 +49,7 @@ pub(crate) struct DestroyConsumerRequest<'a> {
 
     #[serde(rename = "username")]
     pub(crate) username: &'a str,
+
+    #[serde(rename = "req_version")]
+    pub(crate) req_version: u32,
 }

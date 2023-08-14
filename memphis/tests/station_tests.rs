@@ -10,15 +10,24 @@ async fn test_station_creation() {
 
     let client = connect_to_memphis().await;
 
-    let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::File);
+    let station_options =
+        MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::File);
     let station = client.create_station(station_options).await;
     assert_ok!(&station, "Creating Station should be possible.");
 
-    let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::File);
+    let station_options =
+        MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::File);
     let station = client.create_station(station_options).await;
-    assert_ok!(station, "Creating Station with same Settings should be possible.");
+    assert_ok!(
+        station,
+        "Creating Station with same Settings should be possible."
+    );
 
-    let station_options = MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::Memory);
+    let station_options =
+        MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::Memory);
     let station = client.create_station(station_options).await;
-    assert_ok!(station, "Creating Station with different Settings should be possible.");
+    assert_ok!(
+        station,
+        "Creating Station with different Settings should be possible."
+    );
 }

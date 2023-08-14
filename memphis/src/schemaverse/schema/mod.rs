@@ -18,7 +18,9 @@ pub trait SchemaValidator: Send + Sync {
     where
         Self: Sized,
     {
-        let bytes = tokio::fs::read(path).await.map_err(SchemaValidationError::ReadFileError)?;
+        let bytes = tokio::fs::read(path)
+            .await
+            .map_err(SchemaValidationError::ReadFileError)?;
         Self::from_bytes(&bytes.into())
     }
 }

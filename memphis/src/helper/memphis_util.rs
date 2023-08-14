@@ -1,5 +1,5 @@
 pub(crate) fn get_internal_name(name: &str) -> String {
-    name.replace('.', "#")
+    name.to_lowercase().replace('.', "#")
 }
 
 const CHARS: &[u8] = b"0123456789abcdef";

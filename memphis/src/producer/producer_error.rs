@@ -15,4 +15,7 @@ pub enum ProducerError {
     #[cfg(feature = "schemaverse")]
     #[error("SchemaValidationError: {0}")]
     SchemaValidationError(SchemaValidationError),
+
+    #[error("NoPartitionsAvailable")]
+    NoPartitionsAvailable,
 }
