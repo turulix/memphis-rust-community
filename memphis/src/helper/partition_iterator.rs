@@ -10,9 +10,16 @@ impl<T> PartitionIterator<T> {
             index: 0,
         }
     }
+}
 
-    pub(crate) fn next(&self) -> Option<&T> {
-        self.partitions
-            .get((self.index + 1) % self.partitions.len())
+impl<T> Iterator for PartitionIterator<T>
+where
+    T: Clone,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.index = (self.index + 1) % self.partitions.len();
+        self.partitions.get(self.index).cloned()
     }
 }
