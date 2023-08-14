@@ -7,10 +7,11 @@ documentation = "https://docs.rs/memphis-rust-community"
 description = "A Rust implementation of the Memphis Messaging Protocol"
 readme = "../README.md"
 license = "GPL-3.0"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 exclude = [
-    "docker-compose.yml"
+    "docker-compose-latest.yml",
+    "docker-compose-stable.yml"
 ]
 keywords = ["memphis", "community", "messaging"]
 categories = ["network-programming", "asynchronous", "messaging"]
