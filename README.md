@@ -14,7 +14,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-memphis-rust-community = "0.2.1"
+memphis-rust-community = "0.3.0"
 ```
 
 ## Usage
@@ -28,7 +28,7 @@ use memphis_rust_community::station::MemphisStationsOptions;
 
 #[tokio::main]
 async fn main() {
-    let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+    let client = MemphisClient::new("localhost:6666", "root", "memphis", None).await.unwrap();
 
     let station_options = MemphisStationsOptions::new("my-station");
     let station = client.create_station(station_options).await.unwrap();
@@ -57,7 +57,7 @@ use memphis_rust_community::station::MemphisStationsOptions;
 
 #[tokio::main]
 async fn main() {
-    let client = MemphisClient::new("localhost:6666", "root", "memphis").await.unwrap();
+    let client = MemphisClient::new("localhost:6666", "root", "memphis", None).await.unwrap();
 
     let station_options = MemphisStationsOptions::new("my-station");
     let station = client.create_station(station_options).await.unwrap();
