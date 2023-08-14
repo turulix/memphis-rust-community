@@ -1,10 +1,12 @@
 use async_nats::header::{IntoHeaderName, IntoHeaderValue};
 use async_nats::HeaderMap;
 use bytes::Bytes;
-use serde::Serialize;
+use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 
 #[derive(Debug, Default, Serialize)]
 pub struct ComposableMessage {
+    #[serde(serialize_with = "serialize_headers")]
     pub(crate) headers: HeaderMap,
     #[serde(serialize_with = "hex::serde::serialize")]
     pub(crate) payload: Bytes,
@@ -32,4 +34,16 @@ impl ComposableMessage {
 
         self
     }
+}
+
+fn serialize_headers<S>(headers: &HeaderMap, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut map = s.serialize_map(None)?;
+    for (k, v) in headers.iter() {
+        map.serialize_entry(&format!("{:?}", k), v)?;
+    }
+
+    map.end()
 }

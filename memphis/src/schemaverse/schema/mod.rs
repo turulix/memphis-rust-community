@@ -7,10 +7,14 @@ use thiserror::Error;
 use crate::RequestError;
 
 #[async_trait::async_trait]
-pub trait SchemaValidator: Send + Sync {
+pub(crate) trait SchemaValidator: Send + Sync {
     fn validate(&self, message: &Bytes) -> Result<(), SchemaValidationError>;
 
     fn from_bytes(bytes: &Bytes) -> Result<Self, SchemaValidationError>
+    where
+        Self: Sized;
+
+    fn from_str(value: &str) -> Result<Self, SchemaValidationError>
     where
         Self: Sized;
 

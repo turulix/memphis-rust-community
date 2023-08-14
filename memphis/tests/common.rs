@@ -1,11 +1,13 @@
+use tokio_test::assert_ok;
+
 use memphis_rust_community::consumer::{MemphisConsumer, MemphisConsumerOptions};
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::producer::{MemphisProducer, MemphisProducerOptions};
 use memphis_rust_community::station::{MemphisStation, MemphisStationsOptions, StorageType};
-use tokio_test::assert_ok;
 
 #[allow(dead_code)]
 pub async fn connect_to_memphis() -> MemphisClient {
+    pretty_env_logger::init_timed();
     let client = MemphisClient::new("localhost:6666", "root", "memphis").await;
 
     assert_ok!(&client, "Connecting to Memphis should be possible.");

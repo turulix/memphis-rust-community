@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
+use futures_util::StreamExt;
 use log::{error, info};
+use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::memphis_client::MemphisClient;
 use crate::models::request::{CreateStationRequest, DestroyStationRequest, DlsConfiguration};
 #[cfg(feature = "schemaverse")]
-use crate::schemaverse::schema::SchemaValidator;
+use crate::schemaverse::{schema::SchemaValidator, SchemaType};
 use crate::station::memphis_station_options::MemphisStationsOptions;
 use crate::RequestError;
 
@@ -16,7 +19,16 @@ pub struct MemphisStation {
     pub(crate) options: Arc<MemphisStationsOptions>,
 
     #[cfg(feature = "schemaverse")]
-    pub(crate) schema: Option<Arc<dyn SchemaValidator>>,
+    pub(crate) schema: Arc<RwLock<Option<SchemaverseHolding>>>,
+
+    cancel_token: CancellationToken,
+}
+
+#[cfg(feature = "schemaverse")]
+pub(crate) struct SchemaverseHolding {
+    pub schema: Box<dyn SchemaValidator>,
+    pub schema_type: SchemaType,
+    pub schema_name: String,
 }
 
 impl MemphisStation {
@@ -44,12 +56,18 @@ impl MemphisStation {
 
         info!("Created station {}", &options.station_name);
 
-        Ok(Self {
+        let station = Self {
             memphis_client: client,
             options: Arc::new(options),
             #[cfg(feature = "schemaverse")]
-            schema: None,
-        })
+            schema: Arc::new(RwLock::new(None)),
+            cancel_token: CancellationToken::new(),
+        };
+
+        #[cfg(feature = "schemaverse")]
+        station.subscribe_schema_updates().await?;
+
+        Ok(station)
     }
 
     pub async fn destroy(self) -> Result<(), RequestError> {
@@ -116,6 +134,82 @@ mod producer {
     impl MemphisStation {
         pub async fn create_producer(&self, producer_options: MemphisProducerOptions) -> Result<MemphisProducer, RequestError> {
             MemphisProducer::new(self.clone(), producer_options).await
+        }
+    }
+}
+
+#[cfg(feature = "schemaverse")]
+mod schemaverse {
+    use async_nats::Message;
+    use futures_util::StreamExt;
+    use log::{error, info, trace};
+
+    use crate::constants::memphis_constants::MemphisSubscriptions;
+    use crate::models::schemaverse_schema_update::SchemaUpdateResponse;
+    use crate::schemaverse::SchemaType;
+    use crate::station::{MemphisStation, SchemaverseHolding};
+
+    impl MemphisStation {
+        pub async fn get_schema_type(&self) -> Option<SchemaType> {
+            self.schema.read().await.as_ref().map(|v| v.schema_type.clone())
+        }
+
+        pub(crate) async fn subscribe_schema_updates(&self) -> Result<(), async_nats::Error> {
+            let subscription_name = format!("{}{}", &MemphisSubscriptions::SchemaUpdatesPrefix.to_string(), &self.options.station_name);
+            let mut subscriber = self.memphis_client.get_broker_connection().subscribe(subscription_name.clone()).await?;
+
+            let cloned_self = self.clone();
+
+            trace!("Start listening for schema changes at {}", &subscription_name);
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        Some(msg) = subscriber.next() => {
+                            let msg: Message = msg;
+                            let r: SchemaUpdateResponse = match serde_json::from_slice(&msg.payload) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("Error while receiving SchemaUpdate: {}\nMessage was: {}", &e, String::from_utf8_lossy(&msg.payload));
+                                    continue;
+                                }
+                            };
+
+                            let schema_type = match SchemaType::from_str(&r.init.r#type) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("Error while receiving SchemaUpdate: {}\n", &e);
+                                    continue;
+                                }
+                            };
+
+                            let schema = match schema_type.create_validator(&r.init.active_version.schema_content) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    error!("Error while receiving SchemaUpdate: {}\n", &e);
+                                    continue;
+                                }
+                            };
+
+                            let new = SchemaverseHolding {
+                                schema,
+                                schema_type,
+                                schema_name: r.init.schema_name
+                            };
+
+                            {
+                                let mut guard = cloned_self.schema.write().await;
+                                *guard = Some(new);
+                            }
+
+                            info!("Updated schema for station {}", &cloned_self.options.station_name);
+                        },
+                        _ = cloned_self.cancel_token.cancelled() => break,
+                        else => break
+                    }
+                }
+            });
+
+            Ok(())
         }
     }
 }

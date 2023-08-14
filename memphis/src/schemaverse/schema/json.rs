@@ -1,6 +1,6 @@
-use bytes::Bytes;
 use std::borrow::Cow;
 
+use bytes::Bytes;
 use jsonschema::{Draft, JSONSchema, ValidationError};
 use thiserror::Error;
 
@@ -38,6 +38,15 @@ impl SchemaValidator for JsonSchemaValidator {
 
     fn from_bytes(bytes: &Bytes) -> Result<Self, SchemaValidationError> {
         let deserialized = serde_json::from_slice(bytes).map_err(JsonSchemaError::from)?;
+
+        Ok(Self::new(deserialized)?)
+    }
+
+    fn from_str(value: &str) -> Result<Self, SchemaValidationError>
+    where
+        Self: Sized,
+    {
+        let deserialized = serde_json::from_str(value).map_err(JsonSchemaError::from)?;
 
         Ok(Self::new(deserialized)?)
     }

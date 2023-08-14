@@ -69,7 +69,6 @@ impl IntoHeaderName for MemphisHeaders {
 
 pub(crate) enum MemphisSubscriptions {
     DlsPrefix,
-    #[allow(dead_code)]
     SchemaUpdatesPrefix,
 }
 

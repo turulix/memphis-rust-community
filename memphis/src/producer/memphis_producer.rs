@@ -105,21 +105,32 @@ impl MemphisProducer {
 #[cfg(feature = "schemaverse")]
 impl MemphisProducer {
     async fn validate_message(&self, message: &ComposableMessage) -> Result<(), SchemaValidationError> {
-        let Some(schema_validator) = self.station.schema.clone() else {
-            return Ok(());
-        };
+        let err;
+        {
+            let guard = self.station.schema.read().await;
 
-        if let Err(e) = schema_validator.validate(&message.payload) {
-            self.send_notification(&message, &e).await?;
+            let Some(schema_validator) = guard.as_ref() else {
+                return Ok(());
+            };
 
-            if self.station.options.send_schema_failed_msg_to_dls {
-                self.send_message_to_dls(message, &e).await?;
+            if let Err(e) = schema_validator.schema.validate(&message.payload) {
+                err = e;
+            } else {
+                return Ok(());
             }
-
-            return Err(e);
         }
 
-        Ok(())
+        debug!("dwdw");
+
+        // self.send_notification(&message, &err).await?;
+
+        debug!("dwdw2");
+
+        if self.station.options.send_schema_failed_msg_to_dls {
+            self.send_message_to_dls(message, &err).await?;
+        }
+
+        Err(err)
     }
 
     async fn send_notification(&self, message: &&ComposableMessage, e: &SchemaValidationError) -> Result<(), SchemaValidationError> {
@@ -127,7 +138,7 @@ impl MemphisProducer {
             .memphis_client
             .send_notification(
                 MemphisNotificationType::SchemaValidationFailAlert,
-                "Schema validation has failed ",
+                "Schema validation has failed",
                 &format!(
                     "Station {}\nProducer: {}\nError: {}",
                     &self.station.options.station_name, &self.options.producer_name, &e
