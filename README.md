@@ -14,7 +14,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-memphis-rust-community = "0.3.0"
+memphis-rust-community = "0.3.1"
 ```
 
 ## Usage
