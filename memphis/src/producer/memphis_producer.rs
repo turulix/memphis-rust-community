@@ -3,7 +3,7 @@ use log::{debug, error, info};
 use crate::constants::memphis_constants::{
     MemphisHeaders, MemphisNotificationType, MemphisSpecialStation,
 };
-use crate::helper::memphis_util::{get_internal_name, sanitize_name};
+use crate::helper::memphis_util::sanitize_name;
 use crate::helper::partition_iterator::PartitionIterator;
 use crate::models::request::{CreateProducerRequest, DestroyProducerRequest};
 use crate::models::response::CreateProducerResponse;
@@ -81,7 +81,7 @@ impl MemphisProducer {
         Ok(producer)
     }
 
-    pub async fn produce(&self, mut message: ComposableMessage) -> Result<(), ProducerError> {
+    pub async fn produce(&mut self, mut message: ComposableMessage) -> Result<(), ProducerError> {
         if message.payload.is_empty() {
             return Err(ProducerError::PayloadEmpty);
         }
@@ -106,17 +106,14 @@ impl MemphisProducer {
             .await
             .map_err(ProducerError::SchemaValidationError)?;
 
-        match &self.partitions_iterator {
+        match &mut self.partitions_iterator {
             None => {
                 if let Err(e) = self
                     .station
                     .memphis_client
                     .get_broker_connection()
                     .publish_with_headers(
-                        format!(
-                            "{}.final",
-                            get_internal_name(&self.station.get_internal_name(None))
-                        ),
+                        self.station.get_internal_subject_name(None),
                         message.headers,
                         message.payload,
                     )
@@ -140,10 +137,7 @@ impl MemphisProducer {
                     .memphis_client
                     .get_broker_connection()
                     .publish_with_headers(
-                        format!(
-                            "{}.final",
-                            &self.station.get_internal_name(Some(*partition))
-                        ),
+                        self.station.get_internal_subject_name(Some(partition)),
                         message.headers,
                         message.payload,
                     )
@@ -204,7 +198,7 @@ impl MemphisProducer {
         };
 
         if let Err(e) = schema_validator.validate(&message.payload) {
-            self.send_notification(&message, &e).await?;
+            self.send_notification(message, &e).await?;
 
             if self.station.options.send_schema_failed_msg_to_dls {
                 self.send_message_to_dls(message, &e).await?;
