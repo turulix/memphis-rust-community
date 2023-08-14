@@ -358,10 +358,12 @@ impl MemphisConsumer {
     /// Starts pinging the consumer, to ensure its availability.
     fn ping_consumer(&self) {
         let cloned_token = self.cancellation_token.clone();
-        let cloned_options = self.options.clone();
         let cloned_client = self.station.memphis_client.clone();
         let cloned_partitions_data = self.partitions_list.clone();
         let cloned_station = self.station.clone();
+
+        let consumer_name = self.get_name();
+        let durable_name = self.get_internal_name();
 
         tokio::spawn(async move {
             async fn ping_stream_consumer(
@@ -384,26 +386,38 @@ impl MemphisConsumer {
                     None => {
                         let res = ping_stream_consumer(
                             &cloned_station.get_internal_name(None),
-                            &cloned_options.consumer_name,
+                            &durable_name,
                             &cloned_client,
                         )
                         .await;
                         if let Err(e) = res {
                             error!("Error pinging consumer. {}", e);
                             continue;
+                        } else {
+                            trace!(
+                                "Consumer '{}' on station '{}' is still alive.",
+                                &consumer_name,
+                                &cloned_station.options.station_name
+                            )
                         }
                     }
                     Some(data) => {
                         for x in data {
                             let res = ping_stream_consumer(
                                 &cloned_station.get_internal_name(Some(*x)),
-                                &cloned_options.consumer_name,
+                                &durable_name,
                                 &cloned_client,
                             )
                             .await;
                             if let Err(e) = res {
                                 error!("Error pinging consumer. {}", e);
                                 continue;
+                            } else {
+                                trace!(
+                                    "Consumer '{}' on station '{}' is still alive.",
+                                    &consumer_name,
+                                    &cloned_station.options.station_name
+                                )
                             }
                         }
                     }
