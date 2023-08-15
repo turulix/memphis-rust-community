@@ -1,4 +1,4 @@
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 
 use crate::constants::memphis_constants::{
     MemphisHeaders, MemphisNotificationType, MemphisSpecialStation,
@@ -151,9 +151,10 @@ impl MemphisProducer {
             }
         }
 
-        debug!(
+        trace!(
             "Producer {} published message into station {}.",
-            &self.options.producer_name, &self.station.options.station_name
+            &self.options.producer_name,
+            &self.station.options.station_name
         );
         Ok(())
     }
