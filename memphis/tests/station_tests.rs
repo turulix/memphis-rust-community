@@ -1,3 +1,4 @@
+use log::debug;
 use memphis_rust_community::station::{MemphisStationsOptions, StorageType};
 use tokio_test::assert_ok;
 mod common;
@@ -6,7 +7,7 @@ use common::*;
 #[tokio::test]
 async fn test_station_creation() {
     let random_station_name = uuid::Uuid::new_v4().to_string();
-    eprintln!("random_station_name: {}", random_station_name);
+    debug!("random_station_name: {}", random_station_name);
 
     let client = connect_to_memphis().await;
 

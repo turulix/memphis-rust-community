@@ -8,6 +8,8 @@ use tokio_test::assert_ok;
 
 #[tokio::test]
 async fn create_consumer() {
+    let _ = env_logger::try_init();
+
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
     let consumer1 = assert_ok!(
@@ -49,6 +51,8 @@ async fn create_consumer() {
 
 #[tokio::test]
 async fn start_consume() {
+    let _ = env_logger::try_init();
+
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
     let mut consumer1 = assert_ok!(
@@ -61,6 +65,8 @@ async fn start_consume() {
 
 #[tokio::test]
 async fn destroy_consumer() {
+    let _ = env_logger::try_init();
+
     let (_, _, mut consumer, mut producer) = create_random_setup().await;
     assert_ok!(
         producer
