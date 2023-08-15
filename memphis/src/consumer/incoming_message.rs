@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use async_nats::jetstream::{AckKind, Message};
 use async_nats::HeaderMap;
+use log::error;
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::memphis_client::MemphisClient;
@@ -39,16 +40,19 @@ impl MemphisMessage {
         return match res {
             Ok(_) => Ok(()),
             Err(e) => {
+                error!("Error while acking message: {:?}", e);
                 if let Some(header) = &self.msg.headers {
                     if let Some(memphis_id) = header.get("$memphis_pm_id") {
-                        let req = PmAckMsg {
-                            id: memphis_id.to_string(),
-                            consumer_group_name: self.consumer_group.clone(),
-                        };
+                        if let Some(cg_group) = header.get("$memphis_pm_cg_name") {
+                            let req = PmAckMsg {
+                                id: memphis_id.to_string(),
+                                consumer_group_name: cg_group.to_string(),
+                            };
 
-                        self.memphis_client
-                            .send_internal_request(&req, MemphisSpecialStation::PmAcks)
-                            .await?;
+                            self.memphis_client
+                                .send_internal_request(&req, MemphisSpecialStation::PmAcks)
+                                .await?;
+                        }
                     }
                 }
                 Err(e.into())
