@@ -1,3 +1,4 @@
+use log::debug;
 use memphis_rust_community::consumer::{MemphisConsumer, MemphisConsumerOptions};
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::producer::{MemphisProducer, MemphisProducerOptions};
@@ -13,7 +14,7 @@ pub async fn connect_to_memphis() -> MemphisClient {
 #[allow(dead_code)]
 pub async fn create_random_station(client: &MemphisClient) -> MemphisStation {
     let random_station_name = uuid::Uuid::new_v4().to_string();
-    eprintln!("random_station_name: {}", random_station_name);
+    debug!("random_station_name: {}", random_station_name);
 
     let station_options =
         MemphisStationsOptions::new(&random_station_name).with_storage_type(StorageType::Memory);
@@ -58,6 +59,7 @@ pub async fn create_random_setup() -> (
     MemphisConsumer,
     MemphisProducer,
 ) {
+    let _ = env_logger::try_init();
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
     let consumer = create_random_consumer(&station).await;

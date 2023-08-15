@@ -46,6 +46,7 @@ jobs:
           RUST_TEST_TIME_UNIT: 60000,120000
           RUST_TEST_TIME_INTEGRATION: 60000,120000
           RUST_TEST_TIME_DOCTEST: 60000,120000
+          RUST_LOG: trace
         run: |
           cargo test --workspace --all-targets --all-features -- --ensure-time --report-time -Z unstable-options
 
@@ -87,6 +88,7 @@ jobs:
           RUST_TEST_TIME_UNIT: 60000,120000
           RUST_TEST_TIME_INTEGRATION: 60000,120000
           RUST_TEST_TIME_DOCTEST: 60000,120000
+          RUST_LOG: trace
         run: |
           cargo test --workspace --all-targets --all-features -- --ensure-time --report-time -Z unstable-options
 

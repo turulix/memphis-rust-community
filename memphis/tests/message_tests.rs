@@ -15,6 +15,8 @@ use memphis_rust_community::station::StorageType::Memory;
 
 #[tokio::test]
 async fn send_receive_message() {
+    let _ = env_logger::try_init();
+
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
 
@@ -54,6 +56,8 @@ async fn send_receive_message() {
 
 #[tokio::test]
 async fn message_resend_test() {
+    let _ = env_logger::try_init();
+
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
 
@@ -104,6 +108,8 @@ async fn message_resend_test() {
 
 #[tokio::test]
 async fn message_delay_test() {
+    let _ = env_logger::try_init();
+
     let (_, _station, mut consumer, mut producer) = create_random_setup().await;
 
     let payload = "This should be delayed!";
@@ -153,6 +159,7 @@ async fn message_delay_test() {
 
 #[tokio::test]
 async fn max_messages_test() {
+    let _ = env_logger::try_init();
     let (_, _, mut consumer, mut producer) = create_random_setup().await;
     let mut receiver = consumer.consume().await.unwrap();
 
@@ -211,6 +218,7 @@ async fn max_messages_test() {
 
 #[tokio::test]
 async fn partition_sending_receiving() {
+    let _ = env_logger::try_init();
     let random_station_name = uuid::Uuid::new_v4().to_string();
 
     eprintln!("random_station_name: {}", random_station_name);
