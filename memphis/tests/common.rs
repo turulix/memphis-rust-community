@@ -59,7 +59,6 @@ pub async fn create_random_setup() -> (
     MemphisConsumer,
     MemphisProducer,
 ) {
-    let _ = env_logger::try_init();
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
     let consumer = create_random_consumer(&station).await;
