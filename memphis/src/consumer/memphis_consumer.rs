@@ -322,6 +322,11 @@ impl MemphisConsumer {
         Ok(r)
     }
 
+    /// This will stop the consumer, but not destroy it on the server.
+    pub fn stop(self) {
+        self.cancellation_token.cancel();
+    }
+
     /// Sends a request to destroy/delete this Consumer.
     pub async fn destroy(self) -> Result<(), ConsumerError> {
         let destroy_request = DestroyConsumerRequest {
