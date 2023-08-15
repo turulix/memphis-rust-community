@@ -1,8 +1,20 @@
-![Build Status](https://img.shields.io/github/actions/workflow/status/turulix/memphis-rust-community/CD.yml)
-![docs.rs](https://img.shields.io/docsrs/memphis-rust-community)
-![Crates.io](https://img.shields.io/crates/v/memphis-rust-community?label=version)
-![Crates.io](https://img.shields.io/crates/l/memphis-rust-community)
-![Crates.io](https://img.shields.io/crates/d/memphis-rust-community)
+<div>
+    <a href="https://github.com/turulix/memphis-rust-community/actions/workflows/CD.yml">
+        <img src="https://img.shields.io/github/actions/workflow/status/turulix/memphis-rust-community/CD.yml">
+    </a>
+    <a href="https://docs.rs/memphis-rust-community/0.3.1/memphis_rust_community/">
+        <img src="https://img.shields.io/docsrs/memphis-rust-community">
+    </a>
+    <a href="https://crates.io/crates/memphis-rust-community">
+        <img src="https://img.shields.io/crates/v/memphis-rust-community?label=version">
+    </a>
+    <a href="https://crates.io/crates/memphis-rust-community">
+        <img src="https://img.shields.io/crates/l/memphis-rust-community">
+    </a>
+    <a href="https://crates.io/crates/memphis-rust-community">
+        <img src="https://img.shields.io/crates/d/memphis-rust-community">
+    </a>
+</div>
 
 # Memphis Rust Client
 
