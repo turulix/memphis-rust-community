@@ -107,7 +107,7 @@ impl MemphisConsumer {
 
         info!("Consumer '{}' created successfully", &consumer.get_name());
 
-        consumer.ping_consumer();
+        consumer.ping_consumer().await;
 
         Ok(consumer)
     }
@@ -361,7 +361,7 @@ impl MemphisConsumer {
     }
 
     /// Starts pinging the consumer, to ensure its availability.
-    fn ping_consumer(&self) {
+    async fn ping_consumer(&self) {
         let cloned_token = self.cancellation_token.clone();
         let cloned_client = self.station.memphis_client.clone();
         let cloned_partitions_data = self.partitions_list.clone();
@@ -370,7 +370,7 @@ impl MemphisConsumer {
         let consumer_name = self.get_name();
         let durable_name = self.get_internal_name();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             async fn ping_stream_consumer(
                 stream_name: &str,
                 consumer_name: &str,
@@ -381,7 +381,7 @@ impl MemphisConsumer {
                     .get_stream(stream_name)
                     .await?;
 
-                let _consumer = stream.consumer_info(consumer_name).await?;
+                let _consumer = stream.consumer_info(&consumer_name).await?;
 
                 Ok(())
             }
@@ -427,6 +427,19 @@ impl MemphisConsumer {
                         }
                     }
                 };
+            }
+        });
+
+        let cloned_token = self.cancellation_token.clone();
+        let cloned_consumer_name = self.get_name();
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = handle => {
+                    warn!("Consumer '{}' stopped pinging.", &cloned_consumer_name);
+                },
+                _ = cloned_token.cancelled() => {
+                    debug!("Ping for '{}' was canceled", &cloned_consumer_name);
+                }
             }
         });
     }
