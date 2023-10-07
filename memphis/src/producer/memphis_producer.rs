@@ -1,4 +1,4 @@
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 
 use crate::constants::memphis_constants::{
     MemphisHeaders, MemphisNotificationType, MemphisSpecialStation,
