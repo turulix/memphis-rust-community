@@ -5,7 +5,7 @@ use async_nats::connection::State;
 use async_nats::jetstream::Context;
 use async_nats::{jetstream, Client, ConnectError, ConnectOptions, Event, Message};
 use bytes::Bytes;
-use log::info;
+use log::{error, info};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -95,6 +95,10 @@ impl MemphisClient {
                 }
             }
         };
+
+        while connection.connection_state() == State::Pending {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
 
         Ok(MemphisClient {
             jetstream_context: Arc::new(jetstream::new(connection.clone())),
