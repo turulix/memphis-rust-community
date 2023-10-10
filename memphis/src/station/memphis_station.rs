@@ -1,6 +1,8 @@
+use std::io::Cursor;
 use std::sync::Arc;
 
 use log::{error, info};
+use murmur3::murmur3_32;
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::helper::memphis_util::get_internal_name;
@@ -10,6 +12,8 @@ use crate::models::request::{CreateStationRequest, DestroyStationRequest, DlsCon
 use crate::schemaverse::schema::SchemaValidator;
 use crate::station::memphis_station_options::MemphisStationsOptions;
 use crate::RequestError;
+
+static SEED: u32 = 31;
 
 #[derive(Clone)]
 pub struct MemphisStation {
@@ -96,6 +100,10 @@ impl MemphisStation {
     /// This is the name of the subject used to send messages to the station.
     pub fn get_internal_subject_name(&self, partition: Option<u32>) -> String {
         format!("{}.final", self.get_internal_name(partition))
+    }
+
+    pub(crate) fn get_partition_key(&self, key: &str, partition_count: u32) -> u32 {
+        murmur3_32(&mut Cursor::new(key), SEED).unwrap_or(0) % partition_count
     }
 }
 

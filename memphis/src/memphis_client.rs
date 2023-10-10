@@ -3,8 +3,9 @@ use std::time::Duration;
 
 use async_nats::connection::State;
 use async_nats::jetstream::Context;
-use async_nats::{jetstream, Client, ConnectError, ConnectOptions, Message};
+use async_nats::{jetstream, Client, ConnectError, ConnectOptions, Event, Message};
 use bytes::Bytes;
+use log::info;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -198,10 +199,15 @@ impl MemphisClient {
             memphis_username.to_string(),
             memphis_password.to_string(),
         )
-        .flush_interval(Duration::from_millis(100))
+        .event_callback(MemphisClient::event_callback)
+        .retry_on_initial_connect()
         .connection_timeout(Duration::from_secs(5))
         .ping_interval(Duration::from_secs(1))
         .request_timeout(Some(Duration::from_secs(5)))
         .name(connection_name)
+    }
+
+    async fn event_callback(event: Event) {
+        info!("Event: {:?}", event)
     }
 }

@@ -36,22 +36,17 @@ async fn send_receive_message() {
     assert_ok!(res, "Sending a Message should be possible.");
 
     let msg = receiver.recv().await.unwrap();
-    match msg {
-        MemphisEvent::MessageReceived(m) => {
-            assert_eq!(m.get_data_as_string().unwrap().as_str(), payload);
-            assert_eq!(
-                m.get_headers()
-                    .clone()
-                    .unwrap()
-                    .get("TestHeader")
-                    .unwrap()
-                    .as_str(),
-                "TestValue"
-            );
-            m.ack().await.unwrap();
-        }
-        _ => panic!("Received Event should be a MessageReceived Event."),
-    }
+    assert_eq!(msg.get_data_as_string().unwrap().as_str(), payload);
+    assert_eq!(
+        msg.get_headers()
+            .clone()
+            .unwrap()
+            .get("TestHeader")
+            .unwrap()
+            .as_str(),
+        "TestValue"
+    );
+    msg.ack().await.unwrap();
 }
 
 #[tokio::test]
@@ -83,20 +78,10 @@ async fn message_resend_test() {
     assert_ok!(res, "Sending a Message should be possible.");
 
     let msg = receiver.recv().await.unwrap();
-    match msg {
-        MemphisEvent::MessageReceived(m) => {
-            assert_eq!(m.get_data_as_string().unwrap().as_str(), payload);
-        }
-        _ => panic!("Received Event should be a MessageReceived Event."),
-    }
+    assert_eq!(msg.get_data_as_string().unwrap().as_str(), payload);
     let msg = receiver.recv().await.unwrap();
-    match msg {
-        MemphisEvent::MessageReceived(m) => {
-            assert_eq!(m.get_data_as_string().unwrap().as_str(), payload);
-            m.ack().await.unwrap();
-        }
-        _ => panic!("Received Event should be a MessageReceived Event."),
-    }
+    assert_eq!(msg.get_data_as_string().unwrap().as_str(), payload);
+    msg.ack().await.unwrap();
 
     tokio::time::sleep(Duration::from_secs(7)).await;
     assert!(
@@ -121,13 +106,10 @@ async fn message_delay_test() {
 
     let mut receiver = consumer.consume().await.unwrap();
     let msg = receiver.recv().await.unwrap();
-    match msg {
-        MemphisEvent::MessageReceived(m) => {
-            let res = m.delay(Duration::from_secs(15)).await;
-            assert_ok!(res, "Delaying a Message should be possible.");
-        }
-        _ => panic!("Received Event should be a MessageReceived Event."),
-    }
+    assert_ok!(
+        msg.delay(Duration::from_secs(15)).await,
+        "Delaying a Message should be possible."
+    );
     tokio::time::sleep(Duration::from_secs(7)).await;
     let msg = receiver.try_recv();
     match msg {
@@ -141,13 +123,10 @@ async fn message_delay_test() {
     tokio::time::sleep(Duration::from_secs(10)).await;
     let msg = receiver.try_recv();
     match msg {
-        Ok(m) => match m {
-            MemphisEvent::MessageReceived(m) => {
-                assert_eq!(m.get_data_as_string().unwrap().as_str(), payload);
-                m.ack().await.unwrap();
-            }
-            _ => panic!("Received Event should be a MessageReceived Event."),
-        },
+        Ok(m) => {
+            assert_eq!(m.get_data_as_string().unwrap().as_str(), payload);
+            m.ack().await.unwrap();
+        }
         Err(e) => {
             panic!(
                 "Received Event should be an Error Event. Got an Error: {:?}",
@@ -186,21 +165,22 @@ async fn max_messages_test() {
     let now = std::time::Instant::now();
     let mut counter = 0;
     while let Some(msg) = receiver.recv().await {
-        match msg {
-            MemphisEvent::MessageReceived(m) => {
-                assert_eq!(
-                    m.get_data_as_string().unwrap().as_str(),
-                    format!("Message {}", &counter)
-                );
-                counter += 1;
-                m.ack().await.unwrap();
-                if m.get_headers().clone().unwrap().get("id").unwrap().as_str()
-                    == format!("{}", message_count - 1)
-                {
-                    break;
-                }
-            }
-            _ => panic!("Received Event should be a MessageReceived Event."),
+        assert_eq!(
+            msg.get_data_as_string().unwrap().as_str(),
+            format!("Message {}", &counter)
+        );
+        counter += 1;
+        msg.ack().await.unwrap();
+        if msg
+            .get_headers()
+            .clone()
+            .unwrap()
+            .get("id")
+            .unwrap()
+            .as_str()
+            == format!("{}", message_count - 1)
+        {
+            break;
         }
     }
     if counter != message_count {

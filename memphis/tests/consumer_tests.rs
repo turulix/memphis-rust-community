@@ -78,9 +78,7 @@ async fn destroy_consumer() {
 
     tokio::time::sleep(Duration::from_secs(2)).await;
     let msg = assert_ok!(receiver.try_recv());
-    if let MemphisEvent::MessageReceived(m) = msg {
-        assert_ok!(m.ack().await);
-    }
+    assert_ok!(msg.ack().await);
 
     assert_ok!(consumer.destroy().await);
     match receiver.recv().await {

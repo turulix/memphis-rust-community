@@ -27,7 +27,7 @@ pub struct MemphisConsumer {
     station: MemphisStation,
     options: MemphisConsumerOptions,
     cancellation_token: CancellationToken,
-    message_sender: Option<UnboundedSender<MemphisEvent>>,
+    message_sender: Option<UnboundedSender<MemphisMessage>>,
     partitions_list: Option<Vec<u32>>,
 }
 
@@ -150,8 +150,8 @@ impl MemphisConsumer {
     ///
     /// }
     /// ```
-    pub async fn consume(&mut self) -> Result<UnboundedReceiver<MemphisEvent>, Error> {
-        let (sender, receiver) = unbounded_channel::<MemphisEvent>();
+    pub async fn consume(&mut self) -> Result<UnboundedReceiver<MemphisMessage>, Error> {
+        let (sender, receiver) = unbounded_channel::<MemphisMessage>();
         self.message_sender = Some(sender.clone());
         let cloned_token = self.cancellation_token.clone();
         let cloned_client = self.station.memphis_client.clone();
@@ -164,7 +164,7 @@ impl MemphisConsumer {
             client: MemphisClient,
             cancellation_token: CancellationToken,
             options: MemphisConsumerOptions,
-            sender: UnboundedSender<MemphisEvent>,
+            sender: UnboundedSender<MemphisMessage>,
         ) -> Result<(), Error> {
             let consumer: PullConsumer = client
                 .get_jetstream_context()
@@ -210,7 +210,7 @@ impl MemphisConsumer {
                             options.max_ack_time_ms,
                         );
 
-                        let res = sender.send(MemphisEvent::MessageReceived(memphis_message));
+                        let res = sender.send(memphis_message);
                         if res.is_err() {
                             error!(
                                 "Error while sending message to the receiver. {:?}",
