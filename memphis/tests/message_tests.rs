@@ -1,4 +1,4 @@
-use memphis_rust_community::consumer::{MemphisConsumerOptions, MemphisEvent};
+use memphis_rust_community::consumer::MemphisConsumerOptions;
 use memphis_rust_community::producer::{ComposableMessage, MemphisProducerOptions};
 
 use std::sync::Arc;

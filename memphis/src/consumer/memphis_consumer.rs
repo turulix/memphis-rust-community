@@ -10,7 +10,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::constants::memphis_constants::{MemphisSpecialStation, MemphisSubscriptions};
 use crate::consumer::consumer_error::ConsumerError;
-use crate::consumer::event::MemphisEvent;
 use crate::consumer::memphis_consumer_options::MemphisConsumerOptions;
 use crate::consumer::MemphisMessage;
 use crate::helper::memphis_util::{get_internal_name, sanitize_name};
@@ -116,9 +115,6 @@ impl MemphisConsumer {
     /// This method will spawn a new Tokio task that will start to consume messages from Memphis.
     ///
     /// The messages will be sent to the **message_receiver**.
-    ///
-    /// * If the station is not available, the [StationUnavailable](MemphisEvent::StationUnavailable) event will be sent.
-    /// * If the consumer is not available, the [ConsumerUnavailable](MemphisEvent::ConsumerUnavailable) event will be sent.
     ///
     /// # Example
     /// ```rust

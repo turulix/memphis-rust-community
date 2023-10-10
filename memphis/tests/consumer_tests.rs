@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use memphis_rust_community::consumer::{MemphisConsumerOptions, MemphisEvent};
+use memphis_rust_community::consumer::MemphisConsumerOptions;
 use memphis_rust_community::producer::ComposableMessage;
 use std::time::Duration;
 use tokio_test::assert_ok;
