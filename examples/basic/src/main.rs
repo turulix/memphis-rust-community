@@ -1,8 +1,10 @@
 use crate::consumer::start_consumer;
+use crate::producer::start_producer;
 use crate::settings::Settings;
 use log::info;
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::station::MemphisStationsOptions;
+use memphis_rust_community::station::RetentionType::{AckBased, Messages};
 
 mod consumer;
 mod producer;
@@ -21,10 +23,13 @@ async fn main() -> Result<(), anyhow::Error> {
     )
     .await?;
 
-    let station_options = MemphisStationsOptions::new("logs");
+    let station_options = MemphisStationsOptions::new("logs")
+        .with_retention_type(Messages)
+        .with_retention_value(100);
     let station = memphis_client.create_station(station_options).await?;
 
     start_consumer(&station).await?;
+    start_producer(&station).await?;
 
     info!("Press CTRL-C to stop the application.");
     tokio::signal::ctrl_c().await?;

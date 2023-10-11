@@ -1,10 +1,14 @@
+use crate::producer::{LogData, LogLevel};
 use anyhow::Error;
-use log::{error, info};
+use log::{debug, error, info, warn};
 use memphis_rust_community::consumer::MemphisConsumerOptions;
 use memphis_rust_community::station::MemphisStation;
+use std::string::FromUtf8Error;
 
 pub async fn start_consumer(station: &MemphisStation) -> Result<(), Error> {
-    let consumer_options = MemphisConsumerOptions::new("log-consumer");
+    let consumer_options = MemphisConsumerOptions::new("log-consumer")
+        .with_consumer_group("log-consumer-group")
+        .with_max_ack_time_ms(1000);
     let mut consumer = station.create_consumer(consumer_options).await?;
 
     // We need to map the Err here, since async_nats uses a Box Error type...
@@ -13,7 +17,34 @@ pub async fn start_consumer(station: &MemphisStation) -> Result<(), Error> {
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             // Do something with the message here.
-            info!("Received: {:?}", msg);
+            debug!("Received: {:?}", msg);
+            let json_data = match msg.get_data_as_string() {
+                Ok(x) => x,
+                Err(e) => {
+                    error!("Error while getting data as string: {:?}", e);
+                    continue;
+                }
+            };
+            let log_message: LogData = match serde_json::from_str(&json_data) {
+                Ok(x) => x,
+                Err(e) => {
+                    error!("Error while deserializing message: {:?}", e);
+                    continue;
+                }
+            };
+
+            match log_message.level {
+                LogLevel::Info => {
+                    info!("({}) {}", log_message.date, log_message.message)
+                }
+                LogLevel::Warning => {
+                    warn!("({}) {}", log_message.date, log_message.message)
+                }
+                LogLevel::Error => {
+                    error!("({}) {}", log_message.date, log_message.message)
+                }
+            }
+
             if let Err(e) = msg.ack().await {
                 error!("Error while acking message: {:?}", e);
             }

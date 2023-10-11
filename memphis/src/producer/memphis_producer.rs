@@ -1,3 +1,4 @@
+use async_nats::client::FlushError;
 use log::{error, info, trace};
 
 use crate::constants::memphis_constants::{

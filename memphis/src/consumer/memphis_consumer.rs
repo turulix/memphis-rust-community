@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use async_nats::jetstream::consumer::PullConsumer;
+use async_nats::jetstream::consumer::{OrderedPullConsumer, PullConsumer, PushConsumer};
 
 use async_nats::{Error, Message};
 use futures_util::StreamExt;
