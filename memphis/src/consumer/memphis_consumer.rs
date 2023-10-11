@@ -189,6 +189,8 @@ impl MemphisConsumer {
                         }
                     };
 
+                    trace!("Received new Batch");
+
                     while let Some(Ok(msg)) = batch.next().await {
                         trace!(
                             "Message received from Memphis. (Subject: {}, Sequence: {})",

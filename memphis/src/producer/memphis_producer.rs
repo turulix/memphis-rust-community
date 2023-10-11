@@ -152,11 +152,12 @@ impl MemphisProducer {
             }
         }
 
-        trace!(
-            "Producer {} published message into station {}.",
-            &self.options.producer_name,
-            &self.station.options.station_name
-        );
+        //TODO: Uncomment
+        // trace!(
+        //     "Producer {} published message into station {}.",
+        //     &self.options.producer_name,
+        //     &self.station.options.station_name
+        // );
         Ok(())
     }
 
