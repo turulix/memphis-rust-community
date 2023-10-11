@@ -5,7 +5,7 @@ use async_nats::connection::State;
 use async_nats::jetstream::Context;
 use async_nats::{jetstream, Client, ConnectError, ConnectOptions, Event, Message};
 use bytes::Bytes;
-use log::info;
+use log::debug;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -212,6 +212,6 @@ impl MemphisClient {
     }
 
     async fn event_callback(event: Event) {
-        info!("Event: {:?}", event)
+        debug!("Event: {:?}", event)
     }
 }

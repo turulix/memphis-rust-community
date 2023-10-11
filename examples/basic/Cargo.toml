@@ -1,0 +1,16 @@
+[package]
+name = "example-basics"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+memphis-rust-community = { path = "../../memphis" }
+tokio = { version = "1.33.0", features = ["full"] }
+config = "0.13.3"
+serde = "1.0.188"
+serde_json = "1.0.107"
+uuid = {version = "1.4.1", features = ["v4"]}
+anyhow = "1.0.75"
+log = "0.4.20"
+env_logger = "0.10.0"
