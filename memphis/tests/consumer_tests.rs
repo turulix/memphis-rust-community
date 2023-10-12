@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use memphis_rust_community::consumer::{MemphisConsumerOptions, MemphisEvent};
+use memphis_rust_community::consumer::MemphisConsumerOptions;
 use memphis_rust_community::producer::ComposableMessage;
 use std::time::Duration;
 use tokio_test::assert_ok;
@@ -55,7 +55,7 @@ async fn start_consume() {
 
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
-    let mut consumer1 = assert_ok!(
+    let consumer1 = assert_ok!(
         station
             .create_consumer(MemphisConsumerOptions::new("no-group"))
             .await
@@ -67,7 +67,7 @@ async fn start_consume() {
 async fn destroy_consumer() {
     let _ = env_logger::try_init();
 
-    let (_, _, mut consumer, mut producer) = create_random_setup().await;
+    let (_, _, consumer, mut producer) = create_random_setup().await;
     assert_ok!(
         producer
             .produce(ComposableMessage::new().with_payload("Works."))
@@ -78,9 +78,7 @@ async fn destroy_consumer() {
 
     tokio::time::sleep(Duration::from_secs(2)).await;
     let msg = assert_ok!(receiver.try_recv());
-    if let MemphisEvent::MessageReceived(m) = msg {
-        assert_ok!(m.ack().await);
-    }
+    assert_ok!(msg.ack().await);
 
     assert_ok!(consumer.destroy().await);
     match receiver.recv().await {

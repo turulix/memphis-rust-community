@@ -1,10 +1,15 @@
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::string::FromUtf8Error;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_nats::jetstream::{AckKind, Message};
 use async_nats::HeaderMap;
-use log::error;
+use log::{error, info};
+use tokio::sync::RwLock;
+use tokio::task::AbortHandle;
+use tokio::time::Instant;
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
 use crate::memphis_client::MemphisClient;
@@ -16,7 +21,10 @@ pub struct MemphisMessage {
     msg: Message,
     memphis_client: MemphisClient,
     consumer_group: String,
-    pub max_ack_time_ms: i32,
+    known_messages: Arc<RwLock<HashSet<String>>>,
+    known_message_key: String,
+    abort_handle: Arc<AbortHandle>,
+    pub max_ack_time: Duration,
 }
 
 impl MemphisMessage {
@@ -24,18 +32,37 @@ impl MemphisMessage {
         msg: Message,
         memphis_client: MemphisClient,
         consumer_group: String,
-        max_ack_time_ms: i32,
+        max_ack_time: Duration,
+        known_message_key: String,
+        known_messages: Arc<RwLock<HashSet<String>>>,
     ) -> Self {
+        let msg_clone = msg.clone();
+        let abort_handle = tokio::spawn(async move {
+            loop {
+                let safety_time_ms = max_ack_time.as_millis() as f32 * 0.1f32;
+                let safety_time = Duration::from_millis(safety_time_ms.round() as u64);
+                tokio::time::sleep_until(Instant::now() + max_ack_time - safety_time).await;
+                info!("Sending progress ack");
+                if let Err(error) = msg_clone.clone().ack_with(AckKind::Progress).await {
+                    error!("Error while sending progress ack: {:?}", error);
+                }
+            }
+        })
+        .abort_handle();
         MemphisMessage {
             msg,
             memphis_client,
             consumer_group,
-            max_ack_time_ms,
+            max_ack_time,
+            known_messages,
+            known_message_key,
+            abort_handle: Arc::new(abort_handle),
         }
     }
 
     /// Acknowledges the message. Causes the message to be marked as processed and removed from the queue.
     pub async fn ack(&self) -> Result<(), RequestError> {
+        self.disable_missed_ack_safety().await;
         let res = self.msg.ack().await;
         return match res {
             Ok(_) => Ok(()),
@@ -80,6 +107,7 @@ impl MemphisMessage {
     ///
     /// * `delay` - The duration to delay the message.
     pub async fn delay(&self, delay: Duration) -> Result<(), ()> {
+        self.disable_missed_ack_safety().await;
         if let Some(headers) = self.get_headers() {
             if let Some(_msg_id) = headers.get("$memphis_pm_id") {
                 return match self.msg.ack_with(AckKind::Nak(Some(delay))).await {
@@ -98,6 +126,28 @@ impl MemphisMessage {
             Err(_) => Err(()),
         }
     }
+
+    /// This function is used to disable the safety mechanism that sends a progress ack to the server
+    /// if the message is not acked within the specified time.
+    /// This also removes the message from the list of known messages, which have been received but not acked.
+    pub async fn disable_missed_ack_safety(&self) {
+        self.abort_handle.abort();
+        self.known_messages
+            .write()
+            .await
+            .remove(&self.known_message_key);
+    }
+}
+
+impl Drop for MemphisMessage {
+    fn drop(&mut self) {
+        self.abort_handle.abort();
+        let known_messages = self.known_messages.clone();
+        let key = self.known_message_key.clone();
+        tokio::spawn(async move {
+            known_messages.write().await.remove(&key);
+        });
+    }
 }
 
 impl Debug for MemphisMessage {
@@ -109,7 +159,7 @@ impl Debug for MemphisMessage {
         f.debug_struct("MemphisMessage")
             .field("msg", &data)
             .field("consumer_group", &self.consumer_group)
-            .field("max_ack_time_ms", &self.max_ack_time_ms)
+            .field("max_ack_time_ms", &self.max_ack_time)
             .finish_non_exhaustive()
     }
 }
