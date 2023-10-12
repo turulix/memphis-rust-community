@@ -14,7 +14,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-memphis-rust-community = "0.3.2"
+memphis-rust-community = "0.4.0"
 ```
 
 ## Usage
@@ -35,7 +35,7 @@ async fn main() {
 
     let consumer_options = MemphisConsumerOptions::new("my-consumer")
         .with_generate_unique_suffix(true);
-    let mut consumer = station.create_consumer(consumer_options).await.unwrap();
+    let consumer = station.create_consumer(consumer_options).await.unwrap();
 
     let mut message_receiver = consumer.consume().await.unwrap();
     tokio::spawn(async move {

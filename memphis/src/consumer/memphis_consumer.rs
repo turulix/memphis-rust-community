@@ -172,16 +172,17 @@ impl MemphisConsumer {
                                     },
                                 };
 
-                                let known_message_key = format!("{}-{}", msg.subject, sequence);
+                                let subject = &msg.subject;
+                                let known_message_key = format!("{}-{}", subject, sequence);
 
                                 if known_messages.read().await.contains(&known_message_key) {
-                                    trace!("Message was already received (Subject: {}, Sequence: {})", msg.subject, sequence);
+                                    trace!("Message was already received (Subject: {}, Sequence: {})", subject, sequence);
                                     continue;
                                 }
 
                                 trace!(
                                     "Message received from Memphis. (Subject: {}, Sequence: {})",
-                                    msg.subject,
+                                    subject,
                                     sequence
                                 );
 
@@ -198,8 +199,6 @@ impl MemphisConsumer {
 
                                 if let Err(e) = sender.send(memphis_message) {
                                     error!("Error while sending message to the receiver. {:?}", e);
-                                } else {
-                                    trace!("Message sent to the receiver. From {:?}", partition);
                                 }
                             } else if let Err(e) = msg {
                                 error!("Error while receiving messages from Stream. {}", e);
@@ -209,7 +208,7 @@ impl MemphisConsumer {
                         }
                     }
                     _ = cancellation_token_clone.cancelled() => {
-                        trace!("Consumer '{}' on group '{}' was cancelled.", &options_clone.consumer_name, &options_clone.consumer_group);
+                        debug!("Consumer '{}' on group '{}' was cancelled via CancellationToken. ", &options_clone.consumer_name, &options_clone.consumer_group);
                         break;
                     }
                 }
