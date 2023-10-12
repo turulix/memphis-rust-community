@@ -4,7 +4,7 @@ use crate::settings::Settings;
 use log::info;
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::station::MemphisStationsOptions;
-use memphis_rust_community::station::RetentionType::{AckBased, Messages};
+use memphis_rust_community::station::RetentionType::Messages;
 
 mod consumer;
 mod producer;
@@ -28,11 +28,16 @@ async fn main() -> Result<(), anyhow::Error> {
         .with_retention_value(100);
     let station = memphis_client.create_station(station_options).await?;
 
-    start_consumer(&station).await?;
-    start_producer(&station).await?;
+    let consumer = start_consumer(&station).await?;
+    let handle = start_producer(&station).await?;
 
     info!("Press CTRL-C to stop the application.");
     tokio::signal::ctrl_c().await?;
+    handle.abort();
+    consumer.stop();
+
+    // Wait for the consumer to finish processing the last message.
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     Ok(())
 }

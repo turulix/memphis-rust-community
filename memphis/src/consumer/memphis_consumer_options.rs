@@ -1,25 +1,27 @@
+use std::time::Duration;
+
 /// Memphis Consumer Options
 ///
 /// # Example
 /// ```rust
 /// use memphis_rust_community::consumer::MemphisConsumerOptions;
-///
+/// use std::time::Duration;
 /// #[tokio::main]
 /// async fn main() {
-///     let options = MemphisConsumerOptions::new("station_name")
+///         let options = MemphisConsumerOptions::new("station_name")
 ///         .with_consumer_group("consumer_group")
 ///         .with_generate_unique_suffix(true)
-///         .with_pull_interval_ms(1000)
+///         .with_pull_interval(Duration::from_secs(1))
 ///         .with_batch_size(10);
 /// }
 #[derive(Debug, Clone)]
 pub struct MemphisConsumerOptions {
     pub consumer_name: String,
     pub consumer_group: String,
-    pub pull_interval_ms: i32,
+    pub pull_interval: Duration,
     pub batch_size: usize,
-    pub batch_max_time_to_wait_ms: u64,
-    pub max_ack_time_ms: i32,
+    pub batch_max_time_to_wait: Duration,
+    pub max_ack_time: Duration,
     pub max_msg_deliveries: i32,
     pub generate_unique_suffix: bool,
     pub start_consume_from_sequence: i32,
@@ -31,10 +33,10 @@ impl Default for MemphisConsumerOptions {
         MemphisConsumerOptions {
             consumer_name: String::from("Default_Consumer_Name"),
             consumer_group: String::from(""),
-            pull_interval_ms: 1_000,
+            pull_interval: Duration::from_secs(1),
             batch_size: 10,
-            batch_max_time_to_wait_ms: 5_000,
-            max_ack_time_ms: 30_000,
+            batch_max_time_to_wait: Duration::from_secs(5),
+            max_ack_time: Duration::from_secs(30),
             max_msg_deliveries: 10,
             generate_unique_suffix: false,
             start_consume_from_sequence: 1,
@@ -61,8 +63,8 @@ impl MemphisConsumerOptions {
         self
     }
 
-    pub fn with_pull_interval_ms(mut self, pull_interval_ms: i32) -> Self {
-        self.pull_interval_ms = pull_interval_ms;
+    pub fn with_pull_interval(mut self, pull_interval: Duration) -> Self {
+        self.pull_interval = pull_interval;
         self
     }
 
@@ -71,13 +73,13 @@ impl MemphisConsumerOptions {
         self
     }
 
-    pub fn with_batch_max_time_to_wait_ms(mut self, batch_max_time_to_wait_ms: u64) -> Self {
-        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms;
+    pub fn with_batch_max_time_to_wait(mut self, batch_max_time_to_wait: Duration) -> Self {
+        self.batch_max_time_to_wait = batch_max_time_to_wait;
         self
     }
 
-    pub fn with_max_ack_time_ms(mut self, max_ack_time_ms: i32) -> Self {
-        self.max_ack_time_ms = max_ack_time_ms;
+    pub fn with_max_ack_time(mut self, max_ack_time: Duration) -> Self {
+        self.max_ack_time = max_ack_time;
         self
     }
 

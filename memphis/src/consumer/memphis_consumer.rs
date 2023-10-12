@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use async_nats::jetstream::consumer::{OrderedPullConsumer, PullConsumer, PushConsumer};
+use async_nats::jetstream::consumer::PullConsumer;
 
 use async_nats::{Error, Message};
 use futures_util::StreamExt;
@@ -26,7 +26,6 @@ pub struct MemphisConsumer {
     station: MemphisStation,
     options: MemphisConsumerOptions,
     cancellation_token: CancellationToken,
-    message_sender: Option<UnboundedSender<MemphisMessage>>,
     partitions_list: Option<Vec<u32>>,
 }
 
@@ -54,7 +53,7 @@ impl MemphisConsumer {
             connection_id: &station.memphis_client.connection_id.to_string(),
             consumer_type: "application",
             consumer_group: &options.consumer_group,
-            max_ack_time_ms: options.max_ack_time_ms,
+            max_ack_time_ms: options.max_ack_time.as_millis() as i32,
             max_msg_deliveries: options.max_msg_deliveries,
             start_consume_from_sequence: options.start_consume_from_sequence,
             last_messages: options.last_messages,
@@ -80,12 +79,13 @@ impl MemphisConsumer {
         let res = std::str::from_utf8(&res.payload)
             .map_err(|e| RequestError::MemphisError(e.to_string()))?;
 
+        let cancellation_token = CancellationToken::new();
+
         let consumer = match serde_json::from_str::<CreateConsumerResponse>(res) {
             Ok(x) => Self {
                 station,
                 options,
-                cancellation_token: CancellationToken::new(),
-                message_sender: None,
+                cancellation_token,
                 partitions_list: Some(x.partitions_update.partitions_list),
             },
             Err(e) => {
@@ -93,8 +93,7 @@ impl MemphisConsumer {
                     Self {
                         station,
                         options,
-                        cancellation_token: CancellationToken::new(),
-                        message_sender: None,
+                        cancellation_token,
                         partitions_list: None,
                     }
                 } else {
@@ -109,6 +108,115 @@ impl MemphisConsumer {
         consumer.ping_consumer().await;
 
         Ok(consumer)
+    }
+
+    async fn start_pull_subscription(
+        &self,
+        partition: Option<u32>,
+        sender: UnboundedSender<MemphisMessage>,
+    ) -> Result<(), Error> {
+        debug!(
+            "Starting pull subscription for consumer '{}', Partition: {:?}",
+            &self.get_name(),
+            partition
+        );
+        let consumer: PullConsumer = self
+            .station
+            .memphis_client
+            .get_jetstream_context()
+            .get_stream(&self.station.get_internal_name(partition))
+            .await?
+            .get_consumer(&self.get_internal_name())
+            .await?;
+
+        let x = consumer
+            .stream()
+            .max_messages_per_batch(self.options.batch_size)
+            .expires(self.options.batch_max_time_to_wait)
+            .messages()
+            .await;
+
+        let mut stream = match x {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Error while receiving stream from Memphis. {}", e);
+                return Err(Error::from(format!(
+                    "Error while starting stream for consumer '{}'",
+                    &self.get_name()
+                )));
+            }
+        };
+
+        let client_clone = self.station.memphis_client.clone();
+        let options_clone = self.options.clone();
+
+        let cancellation_token_clone = self.cancellation_token.clone();
+        let known_messages = self.station.known_messages.clone();
+
+        tokio::spawn(async move {
+            trace!(
+                "Started fetching messages from Memphis. (Consumer: '{}', Group: '{}')",
+                &options_clone.consumer_name,
+                &options_clone.consumer_group
+            );
+            loop {
+                tokio::select! {
+                    msg = stream.next() => {
+                        if let Some(msg) = msg {
+                            if let Ok(msg) = msg {
+                                let sequence = match msg.info() {
+                                    Ok(info) => info.stream_sequence,
+                                    Err(_e) => {
+                                        error!("Error while getting message info.");
+                                        0
+                                    },
+                                };
+
+                                let known_message_key = format!("{}-{}", msg.subject, sequence);
+
+                                if known_messages.read().await.contains(&known_message_key) {
+                                    trace!("Message was already received (Subject: {}, Sequence: {})", msg.subject, sequence);
+                                    continue;
+                                }
+
+                                trace!(
+                                    "Message received from Memphis. (Subject: {}, Sequence: {})",
+                                    msg.subject,
+                                    sequence
+                                );
+
+                                known_messages.write().await.insert(known_message_key.clone());
+
+                                let memphis_message = MemphisMessage::new(
+                                    msg,
+                                    client_clone.clone(),
+                                    options_clone.consumer_group.clone(),
+                                    options_clone.max_ack_time,
+                                    known_message_key,
+                                    known_messages.clone(),
+                                );
+
+                                if let Err(e) = sender.send(memphis_message) {
+                                    error!("Error while sending message to the receiver. {:?}", e);
+                                } else {
+                                    trace!("Message sent to the receiver. From {:?}", partition);
+                                }
+                            } else if let Err(e) = msg {
+                                error!("Error while receiving messages from Stream. {}", e);
+                            }
+                        } else {
+                            trace!("Consumer '{}' on group '{}' received None message", &options_clone.consumer_name, &options_clone.consumer_group);
+                        }
+                    }
+                    _ = cancellation_token_clone.cancelled() => {
+                        trace!("Consumer '{}' on group '{}' was cancelled.", &options_clone.consumer_name, &options_clone.consumer_group);
+                        break;
+                    }
+                }
+            }
+            drop(sender);
+        });
+        Ok(())
     }
 
     /// # Starts consuming messages from Memphis.
@@ -146,114 +254,18 @@ impl MemphisConsumer {
     ///
     /// }
     /// ```
-    pub async fn consume(&mut self) -> Result<UnboundedReceiver<MemphisMessage>, Error> {
+    pub async fn consume(&self) -> Result<UnboundedReceiver<MemphisMessage>, Error> {
         let (sender, receiver) = unbounded_channel::<MemphisMessage>();
-        self.message_sender = Some(sender.clone());
         let cloned_token = self.cancellation_token.clone();
-        let cloned_client = self.station.memphis_client.clone();
-        let cloned_options = self.options.clone();
         let cloned_partitions_list = self.partitions_list.clone();
-
-        async fn start_pull_subscription(
-            stream_name: &str,
-            consumer_name: &str,
-            client: MemphisClient,
-            cancellation_token: CancellationToken,
-            options: MemphisConsumerOptions,
-            sender: UnboundedSender<MemphisMessage>,
-        ) -> Result<(), Error> {
-            let consumer: PullConsumer = client
-                .get_jetstream_context()
-                .get_stream(stream_name)
-                .await?
-                .get_consumer(consumer_name)
-                .await?;
-
-            let cancel_token = cancellation_token.clone();
-            let cloned_options = options.clone();
-
-            let handle = tokio::spawn(async move {
-                while !cancellation_token.is_cancelled() {
-                    let msg_handler = consumer
-                        .batch()
-                        .max_messages(options.batch_size)
-                        .expires(Duration::from_millis(options.batch_max_time_to_wait_ms))
-                        .messages()
-                        .await;
-
-                    let mut batch = match msg_handler {
-                        Ok(batch) => batch,
-                        Err(e) => {
-                            error!("Error while receiving messages from Memphis. {}", e);
-                            continue;
-                        }
-                    };
-
-                    while let Some(Ok(msg)) = batch.next().await {
-                        trace!(
-                            "Message received from Memphis. (Subject: {}, Sequence: {})",
-                            msg.subject,
-                            match msg.info() {
-                                Ok(info) => info.stream_sequence,
-                                Err(_e) => 0,
-                            }
-                        );
-
-                        let memphis_message = MemphisMessage::new(
-                            msg,
-                            client.clone(),
-                            options.consumer_group.clone(),
-                            options.max_ack_time_ms,
-                        );
-
-                        let res = sender.send(memphis_message);
-                        if res.is_err() {
-                            error!(
-                                "Error while sending message to the receiver. {:?}",
-                                res.err()
-                            );
-                        }
-                    }
-                }
-            });
-
-            tokio::spawn(async move {
-                tokio::select! {
-                    _ = handle => {
-                        warn!("Consumer '{}' on group '{}' stopped consuming.", &cloned_options.consumer_name, &cloned_options.consumer_group);
-                    },
-                    _ = cancel_token.cancelled() => {
-                        debug!("Consumer '{}' on group '{}' was cancelled.", &cloned_options.consumer_name, &cloned_options.consumer_group);
-                    }
-                }
-            });
-
-            Ok(())
-        }
 
         match cloned_partitions_list {
             None => {
-                start_pull_subscription(
-                    &self.station.get_internal_name(None),
-                    &self.get_internal_name(),
-                    cloned_client.clone(),
-                    cloned_token.clone(),
-                    cloned_options.clone(),
-                    sender.clone(),
-                )
-                .await?;
+                self.start_pull_subscription(None, sender.clone()).await?;
             }
             Some(list) => {
                 for x in list {
-                    let res = start_pull_subscription(
-                        &self.station.get_internal_name(Some(x)),
-                        &self.get_internal_name(),
-                        cloned_client.clone(),
-                        cloned_token.clone(),
-                        cloned_options.clone(),
-                        sender.clone(),
-                    )
-                    .await;
+                    let res = self.start_pull_subscription(Some(x), sender.clone()).await;
                     if let Err(e) = res {
                         error!(
                             "Error while starting pull subscription. Stopping consumer. {}",
@@ -264,7 +276,7 @@ impl MemphisConsumer {
                 }
             }
         }
-
+        drop(sender);
         Ok(receiver)
     }
 
@@ -325,6 +337,7 @@ impl MemphisConsumer {
 
     /// Sends a request to destroy/delete this Consumer.
     pub async fn destroy(self) -> Result<(), ConsumerError> {
+        self.cancellation_token.cancel();
         let destroy_request = DestroyConsumerRequest {
             consumer_name: &self.options.consumer_name,
             station_name: &self.station.options.station_name,
@@ -346,7 +359,6 @@ impl MemphisConsumer {
             return Err(e.into());
         }
 
-        self.cancellation_token.cancel();
         info!("Destroyed consumer {}.", &self.options.consumer_name);
 
         Ok(())
@@ -434,7 +446,7 @@ impl MemphisConsumer {
                     warn!("Consumer '{}' stopped pinging.", &cloned_consumer_name);
                 },
                 _ = cloned_token.cancelled() => {
-                    debug!("Ping for '{}' was canceled", &cloned_consumer_name);
+                    trace!("Ping for '{}' was canceled", &cloned_consumer_name);
                 }
             }
         });

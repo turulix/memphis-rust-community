@@ -55,7 +55,7 @@ async fn start_consume() {
 
     let client = connect_to_memphis().await;
     let station = create_random_station(&client).await;
-    let mut consumer1 = assert_ok!(
+    let consumer1 = assert_ok!(
         station
             .create_consumer(MemphisConsumerOptions::new("no-group"))
             .await
@@ -67,7 +67,7 @@ async fn start_consume() {
 async fn destroy_consumer() {
     let _ = env_logger::try_init();
 
-    let (_, _, mut consumer, mut producer) = create_random_setup().await;
+    let (_, _, consumer, mut producer) = create_random_setup().await;
     assert_ok!(
         producer
             .produce(ComposableMessage::new().with_payload("Works."))

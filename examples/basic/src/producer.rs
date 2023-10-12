@@ -1,10 +1,11 @@
 use anyhow::Error;
 use chrono::{DateTime, Utc};
 use log::error;
-use memphis_rust_community::producer::{ComposableMessage, MemphisProducerOptions, ProducerError};
+use memphis_rust_community::producer::{ComposableMessage, MemphisProducerOptions};
 use memphis_rust_community::station::MemphisStation;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use tokio::task::JoinHandle;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum LogLevel {
@@ -20,12 +21,12 @@ pub struct LogData {
     pub date: DateTime<Utc>,
 }
 
-pub async fn start_producer(station: &MemphisStation) -> Result<(), Error> {
+pub async fn start_producer(station: &MemphisStation) -> Result<JoinHandle<()>, Error> {
     let producer_options =
         MemphisProducerOptions::new("amazing-service").with_generate_unique_suffix(true);
     let mut producer = station.create_producer(producer_options).await?;
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         let mut counter = 0;
         loop {
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -52,12 +53,21 @@ pub async fn start_producer(station: &MemphisStation) -> Result<(), Error> {
             let composable_message = ComposableMessage::new()
                 .with_payload(json_message)
                 .with_msg_id(counter.to_string());
-            if let Err(e) = producer.produce(composable_message).await {
-                error!("Error while producing message: {:?}", e);
+            match producer.produce(composable_message).await {
+                Ok(x) => {
+                    if let Err(e) = x.await {
+                        error!("Error while awaiting ack: {:?}", e);
+                        continue;
+                    };
+                }
+                Err(e) => {
+                    error!("Error while producing message: {:?}", e);
+                    continue;
+                }
             }
             counter += 1;
         }
     });
 
-    Ok(())
+    Ok(handle)
 }

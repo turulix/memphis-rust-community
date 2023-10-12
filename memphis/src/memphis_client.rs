@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "schemaverse")]
+use crate::constants::memphis_constants::MemphisNotificationType;
 use async_nats::connection::State;
 use async_nats::jetstream::Context;
 use async_nats::{jetstream, Client, ConnectError, ConnectOptions, Event, Message};
@@ -9,7 +11,8 @@ use log::debug;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::constants::memphis_constants::{MemphisNotificationType, MemphisSpecialStation};
+use crate::constants::memphis_constants::MemphisSpecialStation;
+#[cfg(feature = "schemaverse")]
 use crate::models::request::NotificationRequest;
 use crate::request_error::RequestError;
 use crate::station::{MemphisStation, MemphisStationsOptions};
@@ -116,6 +119,7 @@ impl MemphisClient {
         }
     }
 
+    #[cfg(feature = "schemaverse")]
     pub(crate) async fn send_notification(
         &self,
         notification_type: MemphisNotificationType,
@@ -207,6 +211,7 @@ impl MemphisClient {
         .retry_on_initial_connect()
         .connection_timeout(Duration::from_secs(5))
         .ping_interval(Duration::from_secs(1))
+        .subscription_capacity(1024)
         .request_timeout(Some(Duration::from_secs(5)))
         .name(connection_name)
     }

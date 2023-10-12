@@ -131,8 +131,11 @@ jobs:
           rustup default nightly
           rustup component add clippy
 
-      - name: Check lint
+      - name: Check lint (All Features)
         run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check lint (Default Features)
+        run: cargo clippy --all-targets -- -D warnings
   check_docs:
     name: check (docs)
     runs-on: ubuntu-latest
@@ -156,7 +159,12 @@ jobs:
           rustup default nightly
           rustup component add clippy
 
-      - name: Check lint
+      - name: Check lint (All Features)
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --workspace --all-features
+        run: cargo doc --workspace --all-features --no-deps
+
+      - name: Check lint (Default Features)
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps

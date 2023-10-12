@@ -15,8 +15,9 @@ pub(crate) enum MemphisSpecialStation {
     #[allow(dead_code)]
     SchemaDetachments,
 
+    #[cfg(feature = "schemaverse")]
     Notifications,
-
+    #[cfg(feature = "schemaverse")]
     MemphisSchemaverseDls,
 
     PmAcks,
@@ -36,8 +37,10 @@ impl ToString for MemphisSpecialStation {
             Self::SchemaAttachments => String::from("$memphis_schema_attachments"),
             Self::SchemaDetachments => String::from("$memphis_schema_detachments"),
 
+            #[cfg(feature = "schemaverse")]
             Self::Notifications => String::from("$memphis_notifications"),
 
+            #[cfg(feature = "schemaverse")]
             Self::MemphisSchemaverseDls => String::from("$memphis_schemaverse_dls"),
 
             Self::PmAcks => String::from("$memphis_pm_acks"),
@@ -82,10 +85,12 @@ impl ToString for MemphisSubscriptions {
     }
 }
 
+#[cfg(feature = "schemaverse")]
 pub enum MemphisNotificationType {
     SchemaValidationFailAlert,
 }
 
+#[cfg(feature = "schemaverse")]
 impl ToString for MemphisNotificationType {
     fn to_string(&self) -> String {
         match self {

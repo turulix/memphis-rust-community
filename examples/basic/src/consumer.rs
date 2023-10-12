@@ -1,15 +1,15 @@
 use crate::producer::{LogData, LogLevel};
 use anyhow::Error;
-use log::{debug, error, info, warn};
-use memphis_rust_community::consumer::MemphisConsumerOptions;
+use log::{error, info, warn};
+use memphis_rust_community::consumer::{MemphisConsumer, MemphisConsumerOptions};
 use memphis_rust_community::station::MemphisStation;
-use std::string::FromUtf8Error;
+use std::time::Duration;
 
-pub async fn start_consumer(station: &MemphisStation) -> Result<(), Error> {
+pub async fn start_consumer(station: &MemphisStation) -> Result<MemphisConsumer, Error> {
     let consumer_options = MemphisConsumerOptions::new("log-consumer")
         .with_consumer_group("log-consumer-group")
-        .with_max_ack_time_ms(1000);
-    let mut consumer = station.create_consumer(consumer_options).await?;
+        .with_max_ack_time(Duration::from_millis(1000));
+    let consumer = station.create_consumer(consumer_options).await?;
 
     // We need to map the Err here, since async_nats uses a Box Error type...
     let mut receiver = consumer.consume().await.map_err(|e| anyhow::anyhow!(e))?;
@@ -17,7 +17,6 @@ pub async fn start_consumer(station: &MemphisStation) -> Result<(), Error> {
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             // Do something with the message here.
-            debug!("Received: {:?}", msg);
             let json_data = match msg.get_data_as_string() {
                 Ok(x) => x,
                 Err(e) => {
@@ -46,10 +45,11 @@ pub async fn start_consumer(station: &MemphisStation) -> Result<(), Error> {
             }
 
             if let Err(e) = msg.ack().await {
-                error!("Error while acking message: {:?}", e);
+                error!("Error while acknowledging message: {:?}", e);
             }
         }
+        info!("Gracefully stopped consumer.")
     });
 
-    Ok(())
+    Ok(consumer)
 }

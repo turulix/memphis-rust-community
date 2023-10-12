@@ -3,6 +3,12 @@ pub(crate) struct PartitionIterator<T> {
     index: usize,
 }
 
+impl<T: Clone> PartitionIterator<T> {
+    pub(crate) fn get_partition_list(&self) -> Vec<T> {
+        self.partitions.clone()
+    }
+}
+
 impl<T> PartitionIterator<T> {
     pub(crate) fn new(partitions: Vec<T>) -> Self {
         Self {

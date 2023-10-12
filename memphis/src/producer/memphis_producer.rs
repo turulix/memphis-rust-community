@@ -1,13 +1,15 @@
-use async_nats::client::FlushError;
-use log::{error, info, trace};
+use async_nats::jetstream::context::PublishAckFuture;
+use log::{error, info};
 
-use crate::constants::memphis_constants::{
-    MemphisHeaders, MemphisNotificationType, MemphisSpecialStation,
-};
+#[cfg(feature = "schemaverse")]
+use crate::constants::memphis_constants::MemphisNotificationType;
+
+use crate::constants::memphis_constants::{MemphisHeaders, MemphisSpecialStation};
 use crate::helper::memphis_util::sanitize_name;
 use crate::helper::partition_iterator::PartitionIterator;
 use crate::models::request::{CreateProducerRequest, DestroyProducerRequest};
 use crate::models::response::CreateProducerResponse;
+#[cfg(feature = "schemaverse")]
 use crate::producer::dls_message::{DlsMessage, DlsMessageProducer};
 use crate::producer::{ComposableMessage, MemphisProducerOptions, ProducerError};
 #[cfg(feature = "schemaverse")]
@@ -82,9 +84,28 @@ impl MemphisProducer {
         Ok(producer)
     }
 
-    pub async fn produce(&mut self, mut message: ComposableMessage) -> Result<(), ProducerError> {
+    /// Produces a message to the station.
+    ///
+    /// For more details, see [produce](MemphisProducer::produce).
+    pub async fn produce_to_partition(
+        &self,
+        partition: Option<u32>,
+        mut message: ComposableMessage,
+    ) -> Result<PublishAckFuture, ProducerError> {
         if message.payload.is_empty() {
             return Err(ProducerError::PayloadEmpty);
+        }
+        if let Some(partition_list) = &self.partitions_iterator {
+            match partition {
+                None => {
+                    return Err(ProducerError::PartitionRequired);
+                }
+                Some(partition) => {
+                    if !partition_list.get_partition_list().contains(&partition) {
+                        return Err(ProducerError::PartitionNotValid(partition));
+                    }
+                }
+            }
         }
 
         message.headers.insert(
@@ -107,57 +128,40 @@ impl MemphisProducer {
             .await
             .map_err(ProducerError::SchemaValidationError)?;
 
-        match &mut self.partitions_iterator {
-            None => {
-                if let Err(e) = self
-                    .station
-                    .memphis_client
-                    .get_broker_connection()
-                    .publish_with_headers(
-                        self.station.get_internal_subject_name(None),
-                        message.headers,
-                        message.payload,
-                    )
-                    .await
-                {
-                    error!("Could not publish message. {}", e);
-                    return Err(ProducerError::RequestError(RequestError::NatsError(
-                        e.into(),
-                    )));
-                }
-            }
+        Ok(self
+            .station
+            .memphis_client
+            .get_jetstream_context()
+            .send_publish(
+                self.station.get_internal_subject_name(partition),
+                message.into(),
+            )
+            .await?)
+    }
+
+    /// Produces a message to the station.
+    /// If the station has partitions, the message will round-robin between the partitions.
+    ///
+    /// To ensure that the message is produced to a specific partition, use [produce_to_partition](MemphisProducer::produce_to_partition).
+    ///
+    /// The Library **will not await** the ack from the broker, to ensure that the message is produced successfully
+    /// await the returned [PublishAckFuture].
+    pub async fn produce(
+        &mut self,
+        message: ComposableMessage,
+    ) -> Result<PublishAckFuture, ProducerError> {
+        let ack_future = match &mut self.partitions_iterator {
+            None => self.produce_to_partition(None, message).await?,
             Some(iterator) => {
                 let partition = if let Some(partition) = iterator.next() {
                     partition
                 } else {
-                    error!("No partitions available.");
-                    return Err(ProducerError::NoPartitionsAvailable);
+                    return Err(ProducerError::PartitionUnavailable);
                 };
-                if let Err(e) = self
-                    .station
-                    .memphis_client
-                    .get_broker_connection()
-                    .publish_with_headers(
-                        self.station.get_internal_subject_name(Some(partition)),
-                        message.headers,
-                        message.payload,
-                    )
-                    .await
-                {
-                    error!("Could not publish message. {}", e);
-                    return Err(ProducerError::RequestError(RequestError::NatsError(
-                        e.into(),
-                    )));
-                }
+                self.produce_to_partition(Some(partition), message).await?
             }
-        }
-
-        trace!(
-            "Producer {} published message into station {}.",
-            &self.options.producer_name,
-            &self.station.options.station_name
-        );
-        Ok(())
+        };
+        Ok(ack_future)
     }
 
     pub async fn destroy(self) -> Result<(), RequestError> {
@@ -212,6 +216,7 @@ impl MemphisProducer {
         Ok(())
     }
 
+    #[cfg(feature = "schemaverse")]
     async fn send_notification(
         &self,
         message: &ComposableMessage,

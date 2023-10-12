@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::constants::memphis_constants::MemphisSpecialStation;
@@ -9,6 +10,7 @@ use crate::schemaverse::schema::SchemaValidator;
 use crate::station::memphis_station_options::MemphisStationsOptions;
 use crate::RequestError;
 use log::{error, info};
+use tokio::sync::RwLock;
 
 //static SEED: u32 = 31;
 
@@ -16,6 +18,8 @@ use log::{error, info};
 pub struct MemphisStation {
     pub(crate) memphis_client: MemphisClient,
     pub(crate) options: Arc<MemphisStationsOptions>,
+
+    pub(crate) known_messages: Arc<RwLock<HashSet<String>>>,
 
     #[cfg(feature = "schemaverse")]
     pub(crate) schema: Option<Arc<dyn SchemaValidator>>,
@@ -56,6 +60,7 @@ impl MemphisStation {
         Ok(Self {
             memphis_client: client,
             options: Arc::new(options),
+            known_messages: Arc::new(RwLock::new(HashSet::new())),
             #[cfg(feature = "schemaverse")]
             schema: None,
         })

@@ -3,6 +3,7 @@ use memphis_rust_community::consumer::{MemphisConsumer, MemphisConsumerOptions};
 use memphis_rust_community::memphis_client::MemphisClient;
 use memphis_rust_community::producer::{MemphisProducer, MemphisProducerOptions};
 use memphis_rust_community::station::{MemphisStation, MemphisStationsOptions, StorageType};
+use std::time::Duration;
 use tokio_test::assert_ok;
 
 #[allow(dead_code)]
@@ -31,7 +32,7 @@ pub async fn create_random_consumer(station: &MemphisStation) -> MemphisConsumer
     let random_consumer_name = uuid::Uuid::new_v4().to_string();
 
     let consumer_options = MemphisConsumerOptions::new(&random_consumer_name)
-        .with_max_ack_time_ms(5000)
+        .with_max_ack_time(Duration::from_millis(5000))
         .with_max_msg_deliveries(2);
 
     let consumer = station.create_consumer(consumer_options).await;
